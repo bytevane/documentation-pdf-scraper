@@ -443,6 +443,35 @@ describe('Scraper', () => {
       );
     });
 
+    it('should fail fast on a 4xx entry page instead of scraping the error page', async () => {
+      mockPage.goto.mockResolvedValue({ status: () => 404 });
+
+      await expect(
+        scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/missing', [])
+      ).rejects.toMatchObject({ details: { status: 404 } });
+      expect(mockPage.goto).toHaveBeenCalledTimes(1);
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('should retry a 5xx entry page', async () => {
+      vi.useFakeTimers();
+      try {
+        scraper.config.maxRetries = 2;
+        mockPage.goto
+          .mockResolvedValueOnce({ status: () => 503 })
+          .mockResolvedValueOnce({ status: () => 200 });
+        mockPage.evaluate.mockResolvedValue([]);
+
+        const collecting = scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/a', []);
+        await vi.runAllTimersAsync();
+
+        await expect(collecting).resolves.toEqual(['https://example.com/a']);
+        expect(mockPage.goto).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('should filter other entry points (ignore hash/query) and non-http(s) URLs', async () => {
       scraper.config.navExcludeSelector = '.nav-tabs';
 

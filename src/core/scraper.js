@@ -9,6 +9,19 @@ import { NetworkError, ScraperError, ValidationError } from '../utils/errors.js'
 import { retry, delay } from '../utils/common.js';
 import { HttpResourceService } from '../services/httpResourceService.js';
 
+function httpError(status, url) {
+  const error = new NetworkError(`HTTP ${status}: ${url}`, url);
+  error.details.status = status;
+  return error;
+}
+
+/** Client errors (4xx) and validation failures will fail the same way on every attempt. */
+function isRetryableNavigationError(error) {
+  if (error instanceof ValidationError) return false;
+  const status = error?.details?.status;
+  return !(status >= 400 && status < 500);
+}
+
 export class Scraper extends EventEmitter {
   constructor(dependencies) {
     super();
@@ -548,6 +561,9 @@ export class Scraper extends EventEmitter {
             duration: gotoEndTime - gotoStartTime,
             status: response?.status(),
           });
+          if (response && response.status() >= 400) {
+            throw httpError(response.status(), currentUrl);
+          }
 
           // 尝试等待内容加载
           try {
@@ -562,6 +578,7 @@ export class Scraper extends EventEmitter {
         {
           maxAttempts: this.config.maxRetries || 3,
           delay: 2000,
+          shouldRetry: isRetryableNavigationError,
           onRetry: (attempt, error) => {
             this.logger.warn(`页面加载重试 ${attempt}次`, {
               url: currentUrl,
@@ -842,7 +859,7 @@ export class Scraper extends EventEmitter {
       timeout: this.config.pageTimeout || 30000,
     });
     if (response && response.status() >= 400) {
-      throw new NetworkError(`HTTP ${response.status()}: ${url}`, url);
+      throw httpError(response.status(), url);
     }
   }
 

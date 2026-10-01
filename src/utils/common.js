@@ -44,6 +44,7 @@ export const applyJitter = (baseDelay, strategy = 'decorrelated', prevDelay = nu
  * @param {number} options.maxDelay - Maximum delay cap in ms (default: 30000)
  * @param {string} options.jitterStrategy - Jitter strategy: 'none', 'full', 'equal', 'decorrelated' (default: 'decorrelated')
  * @param {Function} options.onRetry - Callback on retry: (attempt, error, waitTime) => void
+ * @param {Function} options.shouldRetry - Return false to rethrow an error without retrying (default: always retry)
  * @returns {Promise} Result of fn()
  */
 export const retry = async (fn, options = {}) => {
@@ -54,6 +55,7 @@ export const retry = async (fn, options = {}) => {
     maxDelay = 30000,
     jitterStrategy = 'decorrelated',
     onRetry,
+    shouldRetry = () => true,
   } = options;
 
   let lastError;
@@ -64,6 +66,7 @@ export const retry = async (fn, options = {}) => {
       return await fn();
     } catch (error) {
       lastError = error;
+      if (!shouldRetry(error)) throw error;
       if (i < maxAttempts - 1) {
         // Calculate base exponential delay
         const baseWait = delayMs * Math.pow(backoff, i);

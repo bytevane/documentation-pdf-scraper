@@ -45,6 +45,18 @@ describe('Common Utilities', () => {
       expect(fn).toHaveBeenCalledTimes(1);
     });
 
+    test('should rethrow at once when shouldRetry returns false', async () => {
+      const permanent = new Error('permanent');
+      const fn = vi.fn().mockRejectedValue(permanent);
+      const onRetry = vi.fn();
+
+      await expect(
+        retry(fn, { delay: 10, onRetry, shouldRetry: (error) => error !== permanent })
+      ).rejects.toBe(permanent);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(onRetry).not.toHaveBeenCalled();
+    });
+
     test('应该重试失败的函数', async () => {
       const fn = vi
         .fn()
