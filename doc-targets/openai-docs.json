@@ -2,6 +2,7 @@
   "rootURL": "https://developers.openai.com/codex",
   "baseUrl": "https://developers.openai.com/codex",
   "navLinksSelector": "nav a[href], aside a[href], [role='navigation'] a[href], .sidebar a[href]",
+  "siteAdapter": "openai-docs",
   "contentSelector": "#track-content, main #track-content, main .space-y-12, .space-y-12, main, article, [role='main'], .main-content",
   "ignoreURLs": [],
   "allowedDomains": [

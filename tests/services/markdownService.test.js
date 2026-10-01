@@ -573,21 +573,41 @@ describe('MarkdownService', () => {
     expect(content).toContain('Body');
   });
 
+  function createExtractionPage(pageUrl) {
+    const contentHandle = { dispose: vi.fn() };
+    const page = {
+      url: vi.fn().mockReturnValue(pageUrl),
+      evaluateHandle: vi.fn(async () => contentHandle),
+      evaluate: vi.fn(async (fn) => (fn.name === 'serializeContentClone'
+        ? { html: '<h1>Title</h1><p><img src="/images/body.png" alt="Body"></p>', svgCount: 0 }
+        : { modelSections: [] })),
+    };
+    return { page, contentHandle };
+  }
+
   test('extractAndConvertPage 应该调用 page.evaluate 并返回 Markdown', async () => {
     const service = new MarkdownService({ logger });
-    const page = {
-      url: vi.fn().mockReturnValue('https://developers.openai.com/codex/intro'),
-      evaluate: vi.fn(async () => ({
-        html: '<h1>Title</h1><p><img src="/images/body.png" alt="Body"></p>',
-        svgCount: 0,
-      })),
-    };
+    const { page, contentHandle } = createExtractionPage('https://developers.openai.com/codex/intro');
 
     const markdown = await service.extractAndConvertPage(page, 'main');
 
-    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    // Site step + generic serialization, both on the same cloned-content handle.
+    expect(page.evaluate).toHaveBeenCalledTimes(2);
+    expect(page.evaluate.mock.calls.map(([, handle]) => handle)).toEqual([contentHandle, contentHandle]);
+    expect(contentHandle.dispose).toHaveBeenCalledOnce();
     expect(markdown).toContain('Title');
     expect(markdown).toContain('![Body](https://developers.openai.com/images/body.png)');
+  });
+
+  test('extractAndConvertPage runs no site step on other sites', async () => {
+    const service = new MarkdownService({ logger });
+    const { page, contentHandle } = createExtractionPage('https://example.com/docs');
+
+    await service.extractAndConvertPage(page, 'main');
+
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    expect(page.evaluate.mock.calls[0][0].name).toBe('serializeContentClone');
+    expect(contentHandle.dispose).toHaveBeenCalledOnce();
   });
 
   test('_getOpenAiPagerLinkInfo 和 _shouldStripOpenAiPagerLinkGroup 应该区分真正 pager 与普通 Next 链接', () => {

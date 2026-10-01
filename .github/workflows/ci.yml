@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   checks:
-    name: Test, Lint, and Target Coverage
+    name: Test and Lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

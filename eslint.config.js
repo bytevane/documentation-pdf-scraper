@@ -12,6 +12,7 @@ const PAGE_CONTEXT_FILES = [
   "src/services/pageManager.js",
   "src/services/pdfStyleService.js",
   "src/services/translationService.js",
+  "src/sites/openaiDocs.js",
   "scripts/inspect-*.js",
   "scripts/test-expand-collapsibles.js",
   "scripts/test-openai-access.js",

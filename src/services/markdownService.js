@@ -9,14 +9,66 @@ import TurndownService from 'turndown';
  * - 从 Puppeteer 页面提取内容并预处理（例如 SVG）
  * - 处理 YAML frontmatter 的添加与解析
  */
+/**
+ * Runs in the browser through page.evaluate(): wraps labelled SVGs in figures
+ * and returns the clone's HTML. Must stay self-contained (it is serialized).
+ *
+ * @param {Element|null} clone
+ * @returns {{ html: string, svgCount: number }}
+ */
+function serializeContentClone(clone) {
+  if (!clone) return { html: '', svgCount: 0 };
+
+  const svgs = clone.querySelectorAll('svg');
+
+  svgs.forEach((svg) => {
+    try {
+      const texts = [];
+
+      const titleEl = svg.querySelector('title');
+      if (titleEl && titleEl.textContent) {
+        texts.push(titleEl.textContent.trim());
+      }
+
+      const descEl = svg.querySelector('desc');
+      if (descEl && descEl.textContent) {
+        texts.push(descEl.textContent.trim());
+      }
+
+      const textNodes = Array.from(svg.querySelectorAll('text'))
+        .map((node) => node.textContent || '')
+        .map((t) => t.trim())
+        .filter((t) => t && !/^[\d\s.,%-]+$/.test(t)); // 过滤纯数字刻度
+
+      texts.push(...textNodes);
+
+      if (texts.length > 0) {
+        const figure = document.createElement('figure');
+        const caption = document.createElement('figcaption');
+        caption.textContent = texts.join(' | ');
+
+        svg.parentNode.insertBefore(figure, svg);
+        figure.appendChild(svg);
+        figure.appendChild(caption);
+      }
+    } catch {
+      // SVG 处理失败不应该阻塞整体流程
+      // 这里不在浏览器环境里打印日志，交给外层处理
+    }
+  });
+
+  return { html: clone.innerHTML, svgCount: svgs.length };
+}
+
 export class MarkdownService {
   constructor(options = {}) {
     this.logger = options.logger;
     this.config = options.config || {};
     this.markdownConfig = this.config.markdown || options.markdown || {};
-    this.siteAdapters = createSiteAdapters({
-      resolveResourceUrl: (target, pageUrl) => this._resolveResourceUrl(target, pageUrl),
-    });
+    this.siteAdapters = createSiteAdapters(
+      { resolveResourceUrl: (target, pageUrl) => this._resolveResourceUrl(target, pageUrl) },
+      this.config.siteAdapter
+    );
 
     const turndownOptions = {
       headingStyle: 'atx',
@@ -539,410 +591,31 @@ export class MarkdownService {
    */
   async extractAndConvertPage(page, selector) {
     const pageUrl = typeof page.url === 'function' ? page.url() : undefined;
-    const { html, svgCount, openAiModelSections = [] } = await page.evaluate((contentSelector, currentPageUrl) => {
-      const container = document.querySelector(contentSelector);
-      if (!container) {
-        return { html: '', svgCount: 0, openAiModelSections: [] };
+    const siteAdapter = this._siteAdapterFor(pageUrl);
+
+    // Work on a detached clone so neither the site step nor the SVG step touches the live page.
+    const contentHandle = await page.evaluateHandle(
+      (contentSelector) => document.querySelector(contentSelector)?.cloneNode(true) ?? null,
+      selector
+    );
+
+    let siteData = {};
+    let html;
+    let svgCount;
+    try {
+      const transformContentClone = siteAdapter?.constructor.transformContentClone;
+      if (transformContentClone) {
+        siteData = await page.evaluate(transformContentClone, contentHandle, pageUrl);
       }
-
-      const clone = container.cloneNode(true);
-      const normalizeWhitespace = (text = '') => text.replace(/\s+/g, ' ').trim();
-      const isOpenAiDocsPage = (() => {
-        if (!currentPageUrl) return false;
-        try {
-          return new URL(currentPageUrl).hostname === 'developers.openai.com';
-        } catch {
-          return false;
-        }
-      })();
-
-      const getVisibleText = (element) => {
-        const textClone = element.cloneNode(true);
-        textClone
-          .querySelectorAll(
-            'script, style, noscript, template, img, svg, [aria-hidden="true"], [aria-live], .sr-only, [hidden]'
-          )
-          .forEach((node) => node.remove());
-
-        return normalizeWhitespace(textClone.textContent || '');
-      };
-
-      let openAiModelSections = [];
-
-      if (isOpenAiDocsPage) {
-        const decodeAstroValue = (value) => {
-          if (Array.isArray(value) && value.length === 2 && typeof value[0] === 'number') {
-            const [type, payload] = value;
-
-            if (type === 1 && Array.isArray(payload)) {
-              return payload.map(decodeAstroValue);
-            }
-
-            return decodeAstroValue(payload);
-          }
-
-          if (Array.isArray(value)) {
-            return value.map(decodeAstroValue);
-          }
-
-          if (value && typeof value === 'object') {
-            return Object.fromEntries(
-              Object.entries(value).map(([key, nestedValue]) => [key, decodeAstroValue(nestedValue)])
-            );
-          }
-
-          return value;
-        };
-
-        const parseModelCard = (island) => {
-          if (!island) return null;
-
-          let props;
-          try {
-            props = decodeAstroValue(JSON.parse(island.getAttribute('props') || '{}'));
-          } catch {
-            props = {};
-          }
-
-          const name = normalizeWhitespace(
-            props.name
-              || island.querySelector('img')?.getAttribute('alt')
-              || island.querySelector('.heading-md, .heading-sm, h3, h4')?.textContent
-              || ''
-          );
-          const description = normalizeWhitespace(
-            props.description || island.querySelector('p')?.textContent || ''
-          );
-          const command = normalizeWhitespace(
-            island.querySelector('.font-mono')?.textContent || (name ? `codex -m ${name}` : '')
-          );
-          const features = Array.isArray(props.data?.features)
-            ? props.data.features
-              .map((feature) => {
-                const title = normalizeWhitespace(feature?.title || '');
-                if (!title) return null;
-
-                return {
-                  title,
-                  value: typeof feature?.value === 'boolean' ? feature.value : normalizeWhitespace(feature?.value || ''),
-                  iconCount: Array.isArray(feature?.icons) ? feature.icons.length : 0,
-                };
-              })
-              .filter(Boolean)
-            : [];
-
-          if (!name && !description && !command && features.length === 0) {
-            return null;
-          }
-
-          return {
-            name,
-            description,
-            command,
-            features,
-          };
-        };
-
-        const collectModelSections = () => {
-          if (!/\/codex\/models\/?$/.test(currentPageUrl || '')) {
-            return [];
-          }
-
-          const sections = [];
-          const sectionHeadings = Array.from(clone.querySelectorAll('h2'));
-
-          sectionHeadings.forEach((heading) => {
-            const headingText = normalizeWhitespace(heading.textContent || '');
-            if (!['Recommended models', 'Alternative models'].includes(headingText)) {
-              return;
-            }
-
-            let grid = heading.nextElementSibling;
-            while (grid && !grid.querySelector?.('astro-island[component-url*="ModelDetails"]')) {
-              if (/^H2$/i.test(grid.tagName)) {
-                grid = null;
-                break;
-              }
-              grid = grid.nextElementSibling;
-            }
-
-            if (!grid) {
-              return;
-            }
-
-            const cards = Array.from(
-              grid.querySelectorAll('astro-island[component-url*="ModelDetails"]')
-            )
-              .map(parseModelCard)
-              .filter(Boolean);
-
-            if (cards.length === 0) {
-              return;
-            }
-
-            const notes = [];
-            let sibling = grid.nextElementSibling;
-            while (sibling && !/^H2$/i.test(sibling.tagName)) {
-              const text = getVisibleText(sibling);
-              if (text && !sibling.querySelector?.('astro-island[component-url*="ModelDetails"]')) {
-                notes.push(text);
-              }
-              sibling = sibling.nextElementSibling;
-            }
-
-            sections.push({
-              heading: headingText,
-              cards,
-              notes,
-            });
-          });
-
-          return sections;
-        };
-
-        openAiModelSections = collectModelSections();
-
-        clone
-          .querySelectorAll(
-            'script, noscript, style, template, [data-page-copy-action], .page-copy-action, [data-anchor-id], [data-codex-screenshot-overlay]'
-          )
-          .forEach((node) => node.remove());
-
-        const normalizePagerLabel = (text = '') => normalizeWhitespace(text).toLowerCase();
-
-        const getPagerLinkInfo = (link) => {
-          if (!link) return null;
-
-          const label = normalizePagerLabel(link.textContent || '');
-          if (!label) return null;
-
-          const segments = Array.from(link.querySelectorAll('div, span, p, strong, small'))
-            .map((node) => normalizePagerLabel(getVisibleText(node)))
-            .filter(Boolean);
-
-          const exactSegmentKind = segments.find((segment) => segment === 'previous' || segment === 'next');
-          if (exactSegmentKind) {
-            return {
-              kind: exactSegmentKind,
-              exact: true,
-              hasTitle: segments.some((segment) => segment !== exactSegmentKind) || label !== exactSegmentKind,
-            };
-          }
-
-          if (label === 'previous' || label === 'next') {
-            return {
-              kind: label,
-              exact: true,
-              hasTitle: false,
-            };
-          }
-
-          const titledMatch = label.match(/^(previous|next)\s+\S/);
-          if (titledMatch) {
-            return {
-              kind: titledMatch[1],
-              exact: false,
-              hasTitle: true,
-            };
-          }
-
-          return null;
-        };
-
-        const shouldStripPagerLinks = (linkInfos, { requireExact = false } = {}) => {
-          if (!Array.isArray(linkInfos) || linkInfos.length === 0 || linkInfos.length > 2) {
-            return false;
-          }
-
-          if (linkInfos.some((info) => !info)) {
-            return false;
-          }
-
-          if (requireExact && linkInfos.some((info) => !info.exact)) {
-            return false;
-          }
-
-          const hasPrevious = linkInfos.some((info) => info.kind === 'previous');
-          const hasNext = linkInfos.some((info) => info.kind === 'next');
-
-          if (hasPrevious && hasNext) {
-            return true;
-          }
-
-          if (linkInfos.length === 1) {
-            return linkInfos[0].exact && !linkInfos[0].hasTitle;
-          }
-
-          return false;
-        };
-
-        clone.querySelectorAll('nav').forEach((nav) => {
-          const linkInfos = Array.from(nav.querySelectorAll('a')).map(getPagerLinkInfo);
-          const isPagerNav = shouldStripPagerLinks(linkInfos, { requireExact: true });
-
-          if (isPagerNav) {
-            nav.remove();
-          }
-        });
-
-        const normalizePanelLabel = (label) => {
-          if (!label) return '';
-
-          const lower = label.toLowerCase();
-          if (lower === 'app') return 'App (Recommended)';
-          if (lower === 'ide') return 'IDE extension';
-          if (lower === 'cli') return 'CLI';
-          if (lower === 'cloud') return 'Cloud';
-
-          return label;
-        };
-
-        const tabPanels = Array.from(clone.querySelectorAll('[data-panel][role="region"], [role="tabpanel"]'));
-        const tabLists = Array.from(clone.querySelectorAll('[role="tablist"]'));
-
-        tabLists.forEach((tabList) => {
-          if (tabPanels.length === 0) {
-            const labels = Array.from(tabList.querySelectorAll('[role="tab"], button'))
-              .map((button) => normalizePanelLabel(getVisibleText(button)))
-              .filter(Boolean);
-
-            if (labels.length > 1 && tabList.parentNode) {
-              const list = document.createElement('ul');
-              labels.forEach((label) => {
-                const item = document.createElement('li');
-                item.textContent = label;
-                list.appendChild(item);
-              });
-              tabList.parentNode.insertBefore(list, tabList);
-            }
-          }
-
-          tabList.remove();
-        });
-
-        if (tabPanels.length > 0) {
-          tabPanels.forEach((panel) => {
-            panel.removeAttribute('hidden');
-            panel.setAttribute('aria-hidden', 'false');
-
-            const label = normalizePanelLabel(
-              normalizeWhitespace(panel.getAttribute('aria-label') || panel.getAttribute('data-panel') || '')
-            );
-
-            if (!label || !panel.parentNode) {
-              return;
-            }
-
-            const previousElement = panel.previousElementSibling;
-            if (
-              previousElement &&
-              /^H[1-6]$/.test(previousElement.tagName) &&
-              normalizeWhitespace(previousElement.textContent || '') === label
-            ) {
-              return;
-            }
-
-            const heading = document.createElement('h3');
-            heading.textContent = label;
-            panel.parentNode.insertBefore(heading, panel);
-          });
-        }
-
-        clone.querySelectorAll('[data-codex-screenshot-root]').forEach((root) => {
-          const inlineImage =
-            root.querySelector('img[data-codex-screenshot-inline-image]') ||
-            Array.from(root.querySelectorAll('img')).find(
-              (image) => !image.closest('[data-codex-screenshot-overlay]')
-            );
-
-          if (!inlineImage) {
-            root.remove();
-            return;
-          }
-
-          const figure = document.createElement('figure');
-          const imageClone = inlineImage.cloneNode(true);
-          imageClone.removeAttribute('style');
-          imageClone.removeAttribute('class');
-          figure.appendChild(imageClone);
-          root.replaceWith(figure);
-        });
-
-        clone.querySelectorAll('button').forEach((button) => {
-          const label = button.getAttribute('aria-label') || '';
-          const text = getVisibleText(button);
-          const copiedBadge = Array.from(button.querySelectorAll('[aria-hidden="true"]')).some((node) =>
-            /copied/i.test(node.textContent || '')
-          );
-          const hasExampleIcon = !!button.querySelector('img[src*="/codex/colorcons/"]');
-
-          if (copiedBadge || hasExampleIcon) {
-            if (!text) {
-              button.remove();
-              return;
-            }
-
-            const paragraph = document.createElement('p');
-            paragraph.textContent = text;
-            button.replaceWith(paragraph);
-            return;
-          }
-
-          if (!text || /copy|close|open/i.test(label)) {
-            button.remove();
-          }
-        });
-      }
-
-      const svgs = clone.querySelectorAll('svg');
-
-      svgs.forEach((svg) => {
-        try {
-          const texts = [];
-
-          const titleEl = svg.querySelector('title');
-          if (titleEl && titleEl.textContent) {
-            texts.push(titleEl.textContent.trim());
-          }
-
-          const descEl = svg.querySelector('desc');
-          if (descEl && descEl.textContent) {
-            texts.push(descEl.textContent.trim());
-          }
-
-          const textNodes = Array.from(svg.querySelectorAll('text'))
-            .map((node) => node.textContent || '')
-            .map((t) => t.trim())
-            .filter((t) => t && !/^[\d\s.,%-]+$/.test(t)); // 过滤纯数字刻度
-
-          texts.push(...textNodes);
-
-          if (texts.length > 0) {
-            const figure = document.createElement('figure');
-            const caption = document.createElement('figcaption');
-            caption.textContent = texts.join(' | ');
-
-            svg.parentNode.insertBefore(figure, svg);
-            figure.appendChild(svg);
-            figure.appendChild(caption);
-          }
-        } catch {
-          // SVG 处理失败不应该阻塞整体流程
-          // 这里不在浏览器环境里打印日志，交给外层处理
-        }
-      });
-
-      return {
-        html: clone.innerHTML,
-        svgCount: svgs.length,
-        openAiModelSections,
-      };
-    }, selector, pageUrl);
+      ({ html, svgCount } = await page.evaluate(serializeContentClone, contentHandle));
+    } finally {
+      await contentHandle.dispose();
+    }
 
     this.logger?.debug?.('从页面提取 HTML 完成', {
       hasContent: !!html,
       svgCount,
-      openAiModelSections: openAiModelSections.length,
+      siteAdapter: siteAdapter?.constructor.id,
     });
 
     let markdown = this.convertHtmlToMarkdown(html, {
@@ -950,10 +623,7 @@ export class MarkdownService {
       pageUrl,
     });
 
-    markdown = this._siteAdapterFor(pageUrl)?.normalizeExtractedMarkdown(markdown, {
-      pageUrl,
-      modelSections: openAiModelSections,
-    }) ?? markdown;
+    markdown = siteAdapter?.normalizeExtractedMarkdown(markdown, { pageUrl, siteData }) ?? markdown;
 
     return markdown;
   }
