@@ -22,6 +22,7 @@ const DOC_TARGETS = {
   'cloudflare-blog': 'cloudflare-blog.json',
   'anthropic-research': 'anthropic-research.json',
   'claude-blog': 'claude-blog.json',
+  'claude-dev-blog': 'claude-dev-blog.json',
 };
 
 function validateSafePath(targetPath) {

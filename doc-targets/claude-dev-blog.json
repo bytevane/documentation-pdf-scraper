@@ -1,0 +1,50 @@
+{
+    "rootURL": "https://claude.dev/",
+    "baseUrl": "https://claude.dev/blog/",
+    "navLinksSelector": "a[href^='/blog/']",
+    "contentSelector": "#body",
+    "allowedDomains": [
+        "claude.dev"
+    ],
+    "ignoreURLs": [],
+    "markdownSource": {
+        "enabled": true,
+        "format": "markdown",
+        "urlSuffix": ".md"
+    },
+    "sectionEntryPoints": [],
+    "sectionTitles": {},
+    "enablePDFStyleProcessing": true,
+    "navigationStrategy": "load",
+    "maxPaginationPages": 1,
+    "paginationSelector": "",
+    "targetSections": [
+        {
+            "title": "claude.dev Blog",
+            "entryUrl": "https://claude.dev/",
+            "urls": [
+                "https://claude.dev/blog/building-with-claude-sonnet-5-5",
+                "https://claude.dev/blog/automating-eval-design-and-hillclimbing",
+                "https://claude.dev/blog/what-a-task-costs-on-opus-5-5",
+                "https://claude.dev/blog/spending-your-effort",
+                "https://claude.dev/blog/how-we-made-claude-ai-faster",
+                "https://claude.dev/blog/getting-the-most-out-of-opus-5-5",
+                "https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models",
+                "https://claude.dev/blog/lessons-from-building-claude-code-how-we-use-skills",
+                "https://claude.dev/blog/a-harness-for-every-task-dynamic-workflows-in-claude-code",
+                "https://claude.dev/blog/using-claude-code-the-unreasonable-effectiveness-of-html",
+                "https://claude.dev/blog/lessons-from-building-claude-code-prompt-caching-is-everything",
+                "https://claude.dev/blog/seeing-like-an-agent"
+            ]
+        }
+    ],
+    "output": {
+        "finalPdfDirectory": "finalPdf-claude-dev-blog"
+    },
+    "translation": {
+        "enabled": false,
+        "bilingual": false,
+        "targetLanguage": "Simplified Chinese (简体中文)",
+        "concurrency": 2
+    }
+}

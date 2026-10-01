@@ -268,6 +268,7 @@ Target-specific configurations (URLs, selectors, etc.) are stored in `doc-target
 npm run docs:openai      # Switch to OpenAI config
 npm run docs:claude      # Switch to Claude Code config
 npm run docs:claude-curated # Switch to 16 curated Claude Code pages in four sections
+npm run docs:claude-dev-blog # Switch to the claude.dev blog (native Markdown, no browser)
 npm run docs:current     # Show current target info
 npm run docs:list        # List all available targets
 ```
