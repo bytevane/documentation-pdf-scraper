@@ -12,14 +12,28 @@ export class CliJsonTranslationClient {
     this.timeoutMs = options.timeoutMs || 60000;
     this.logger = options.logger;
     this.spawn = options.spawn || defaultSpawn;
+    this.children = new Set();
+    this.disposed = false;
+  }
+
+  /** Kill running CLI processes so shutdown does not leave them behind. */
+  dispose() {
+    this.disposed = true;
+    for (const child of this.children) child.kill('SIGKILL');
+    this.children.clear();
   }
 
   async translateJson({ instructions, inputMap }) {
     const jsonInput = JSON.stringify(inputMap, null, 2);
     const startTime = Date.now();
 
+    if (this.disposed) {
+      throw new Error(`${this.displayName} client is disposed`);
+    }
+
     return new Promise((resolve, reject) => {
       const child = this.spawn(this.command, this.buildArgs(instructions));
+      this.children.add(child);
       let finished = false;
       let timedOut = false;
       let escalationTimer;
@@ -29,6 +43,7 @@ export class CliJsonTranslationClient {
       const finish = (callback) => {
         if (finished) return;
         finished = true;
+        this.children.delete(child);
         clearTimeout(timeoutTimer);
         clearTimeout(escalationTimer);
         callback();

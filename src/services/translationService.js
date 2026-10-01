@@ -162,6 +162,12 @@ export class TranslationService {
     return this.cacheWriteQueue;
   }
 
+  /** Called by the container on shutdown: stop running CLI translations, then drain cache writes. */
+  async dispose() {
+    this.client?.dispose?.();
+    await this._flushCacheWrites();
+  }
+
   async _flushCacheWrites() {
     try {
       await this.cacheWriteQueue;
