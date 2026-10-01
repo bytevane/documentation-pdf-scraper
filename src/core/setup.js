@@ -104,6 +104,7 @@ function registerBrowserServices(container) {
     (config, logger) => new BrowserPool({
       maxBrowsers: config.concurrency,
       headless: true,
+      disableWebSecurity: config.browser?.disableWebSecurity === true,
       logger,
     }),
     ['config', 'logger']

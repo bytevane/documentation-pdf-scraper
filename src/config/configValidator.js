@@ -162,6 +162,10 @@ const configSchema = Joi.object({
 
     devtools: Joi.boolean().default(false).description('Open browser devtools'),
 
+    disableWebSecurity: Joi.boolean()
+      .default(false)
+      .description('Launch Chromium with --disable-web-security (turns off same-origin policy)'),
+
     args: Joi.array()
       .items(Joi.string())
       .default([

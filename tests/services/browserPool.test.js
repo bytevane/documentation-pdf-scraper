@@ -172,6 +172,15 @@ describe('BrowserPool', () => {
       expect(browserPool.stats.created).toBe(1);
     });
 
+    it('keeps the same-origin policy on unless disableWebSecurity is set', async () => {
+      await browserPool.createBrowser();
+      expect(puppeteer.launch.mock.calls.at(-1)[0].args).not.toContain('--disable-web-security');
+
+      const insecurePool = new BrowserPool({ disableWebSecurity: true, logger: mockLogger });
+      await insecurePool.createBrowser();
+      expect(puppeteer.launch.mock.calls.at(-1)[0].args).toContain('--disable-web-security');
+    });
+
     it('should setup browser event listeners', async () => {
       const browser = await browserPool.createBrowser();
 

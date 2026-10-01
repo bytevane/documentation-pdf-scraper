@@ -693,6 +693,7 @@ describe('setup', () => {
       expect(BrowserPool).toHaveBeenCalledWith({
         maxBrowsers: 3,
         headless: true,
+        disableWebSecurity: false,
         logger: 'logger',
       });
       expect(browserPool.initialize).not.toHaveBeenCalled();

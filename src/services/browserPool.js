@@ -117,7 +117,7 @@ export class BrowserPool extends EventEmitter {
           '--no-first-run',
           '--no-zygote',
           '--disable-gpu',
-          '--disable-web-security',
+          ...(this.options.disableWebSecurity ? ['--disable-web-security'] : []),
           '--disable-features=VizDisplayCompositor',
           '--disable-blink-features=AutomationControlled',
           '--disable-infobars',
