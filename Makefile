@@ -5,7 +5,7 @@ UV_ENV_DIR = .venv
 UV_PYTHON = $(UV_ENV_DIR)/bin/python
 NODE_MODULES = node_modules
 
-.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci test-coverage verify-openclaw verify-openclaw-ci check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-current docs-list docs-use
+.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci test-coverage check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-current docs-list docs-use
 
 DOC_TARGET_SCRIPT = scripts/use-doc-target.js
 
@@ -13,8 +13,7 @@ DOC_TARGET_SCRIPT = scripts/use-doc-target.js
 DOCS_ALIAS_claude = claude-code
 DOCS_ALIAS_cloudflare = cloudflare-blog
 DOCS_ALIAS_anthropic = anthropic-research
-DOCS_ALIAS_openclaw = openclaw-zh-cn
-DOC_TARGET_NAMES := $(sort $(basename $(notdir $(wildcard doc-targets/*.json))) openai claude cloudflare anthropic openclaw)
+DOC_TARGET_NAMES := $(sort $(basename $(notdir $(wildcard doc-targets/*.json))) openai claude cloudflare anthropic)
 DOC_TARGET_SHORTCUTS := $(addprefix docs-,$(DOC_TARGET_NAMES))
 
 .PHONY: $(DOC_TARGET_SHORTCUTS)
@@ -33,8 +32,7 @@ help:
 	@echo "  pdf-smoke     - Generate and verify the fixed PDF layout fixture"
 	@echo "  verify-pdf PDF=<path> - Check a PDF and render review previews"
 	@echo "  lint          - Run linter"
-	@echo "  verify-openclaw - Verify openclaw zh-CN targetUrls coverage against sitemap"
-	@echo "  ci            - Run CI checks (test + lint + verify-openclaw-ci)"
+	@echo "  ci            - Run CI checks (tests with coverage floor + lint)"
 	@echo "  clean         - Clean generated PDFs and metadata"
 	@echo "  clean-cache   - Clean HTTP/translation/annotation caches and metadata (keep PDFs)"
 	@echo "  clean-all     - Clean everything including dependencies"
@@ -134,18 +132,8 @@ lint:
 	@echo "Running linter..."
 	npm run lint
 
-# Verify OpenClaw zh-CN target URLs coverage
-verify-openclaw:
-	@echo "Verifying OpenClaw zh-CN target URL coverage..."
-	npm run docs:openclaw:verify
-
-# Verify OpenClaw zh-CN target URLs coverage (allow network fetch failures in CI)
-verify-openclaw-ci:
-	@echo "Verifying OpenClaw zh-CN target URL coverage (CI mode)..."
-	OPENCLAW_VERIFY_ALLOW_FETCH_FAILURE=1 npm run docs:openclaw:verify
-
 # CI checks
-ci: test-coverage lint verify-openclaw-ci
+ci: test-coverage lint
 	@echo "✅ CI checks passed"
 
 # Fix linting issues

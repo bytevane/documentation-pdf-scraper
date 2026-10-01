@@ -7,7 +7,6 @@ import path from 'node:path';
  */
 export const DOC_TARGET_ALIASES = Object.freeze({
   openai: 'openai-docs',
-  openclaw: 'openclaw-zh-cn',
 });
 
 /** Names of all doc-targets/*.json files, sorted. */

@@ -10,7 +10,6 @@ on:
         options:
           - claude-code
           - openai
-          - openclaw
           - anthropic-research
           - cloudflare-blog
           - 53ai
