@@ -103,11 +103,15 @@ describe('Application (real implementation)', () => {
     expect(app.container).toBeNull();
   });
 
-  it.each(['SIGINT', 'SIGTERM', 'SIGQUIT'])('cleans up on %s', async (signal) => {
+  it.each([
+    ['SIGINT', 130],
+    ['SIGTERM', 143],
+    ['SIGQUIT', 131],
+  ])('cleans up on %s and exits with %i', async (signal, exitCode) => {
     await app.initialize();
     await processRef.listeners(signal)[0]();
     expect(shutdownContainer).toHaveBeenCalledOnce();
-    expect(processRef.exit).toHaveBeenCalledWith(0);
+    expect(processRef.exit).toHaveBeenCalledWith(exitCode);
   });
 
   it.each(['uncaughtException', 'unhandledRejection'])('reports fatal %s', async (signal) => {

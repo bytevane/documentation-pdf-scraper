@@ -1,4 +1,7 @@
+import fs from 'node:fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
+import { constants as osConstants } from 'node:os';
 import { checkToolchain } from './utils/toolchain.js';
 import { createContainer, shutdownContainer, getContainerHealth } from './core/setup.js';
 import { createLogger } from './utils/logger.js';
@@ -35,7 +38,8 @@ class Application {
       this.processRef.on(signal, async () => {
         this.logger.info(`Received ${signal}, initiating graceful shutdown...`);
         await this.shutdown();
-        this.processRef.exit(0);
+        // Conventional "terminated by signal" exit code, e.g. 130 for SIGINT.
+        this.processRef.exit(128 + osConstants.signals[signal]);
       });
     });
 
@@ -138,7 +142,6 @@ class Application {
 
       const pythonMergeService = await this.container.get('pythonMergeService');
 
-      const fs = await import('node:fs/promises');
       const config = await this.container.get('config');
 
       // 为 Python 合并生成完整配置文件（config.json 仅保留公共配置，doc-target 在运行时合并）
@@ -471,8 +474,7 @@ export { Application, main };
 
 // 如果直接运行此文件，执行主函数
 const entryFilePath = process.argv[1] ? path.resolve(process.argv[1]) : null;
-const appFilePath = path.resolve(process.cwd(), 'src/app.js');
 
-if (entryFilePath === appFilePath) {
+if (entryFilePath === fileURLToPath(import.meta.url)) {
   main().catch(console.error);
 }
