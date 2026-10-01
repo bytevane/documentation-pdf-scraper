@@ -84,6 +84,9 @@ export const pandocHeader = String.raw`\usepackage{fvextra}
 \newunicodechar{ˌ}{{\scraperIPA ˌ}}
 \newunicodechar{ː}{{\scraperIPA ː}}
 \newunicodechar{θ}{{\scraperIPA θ}}
+% Latin Modern text fonts omit U+2248; use the matching glyph from the math font.
+\newfontfamily\scraperMathSymbols{latinmodern-math.otf}
+\newunicodechar{≈}{{\scraperMathSymbols ≈}}
 \fvset{codes*={\catcode"23F8=\active\catcode"2705=\active\catcode"274C=\active\catcode"1F4CA=\active\catcode"1F4C1=\active}}
 \RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines,breakanywhere,fontsize=\small}
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,breakanywhere,fontsize=\small,commandchars=\\\{\}}

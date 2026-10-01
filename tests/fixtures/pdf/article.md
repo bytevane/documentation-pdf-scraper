@@ -19,6 +19,7 @@ The verifier works <span class="english-annotation-source">under the hood</span>
 :::
 
 Use `⏸ plan mode on` to pause; ✅ Include and ❌ Exclude must remain visible.
+Offsets such as 0.18 × 56 ≈ 10 px must keep the almost-equal sign.
 
 ```text
 project/
