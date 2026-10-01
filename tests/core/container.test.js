@@ -76,6 +76,46 @@ describe('Container', () => {
       expect(instance.name).toBe('default');
     });
 
+    test('should create an async singleton once for concurrent get() calls', async () => {
+      const factory = vi.fn(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return { id: Math.random() };
+      });
+      container.register('service', factory);
+
+      const [first, second] = await Promise.all([
+        container.get('service'),
+        container.get('service'),
+      ]);
+
+      expect(factory).toHaveBeenCalledTimes(1);
+      expect(first).toBe(second);
+    });
+
+    test('should call plain function factories without new', async () => {
+      let calledWithNew;
+      function createService() {
+        calledWithNew = new.target !== undefined;
+        return { ok: true };
+      }
+      container.register('service', createService);
+
+      await expect(container.get('service')).resolves.toEqual({ ok: true });
+      expect(calledWithNew).toBe(false);
+    });
+
+    test('should not cache a singleton whose factory failed', async () => {
+      const factory = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('first attempt failed'))
+        .mockResolvedValueOnce({ ok: true });
+      container.register('service', factory);
+
+      await expect(container.get('service')).rejects.toThrow('first attempt failed');
+      await expect(container.get('service')).resolves.toEqual({ ok: true });
+      expect(factory).toHaveBeenCalledTimes(2);
+    });
+
     test('应该抛出错误当服务不存在时', async () => {
       await expect(container.get('nonExistent')).rejects.toThrow("Service 'nonExistent' not found");
     });
