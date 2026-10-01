@@ -1,11 +1,366 @@
 import { fromMarkdown } from 'mdast-util-from-markdown';
 
 /**
+ * Runs in the browser through page.evaluate() on a detached clone of the page's
+ * content element, before the generic SVG handling. Puppeteer serializes this
+ * function, so it must not reference anything outside its own body.
+ *
+ * @param {Element|null} clone
+ * @param {string} currentPageUrl
+ * @returns {{ modelSections: Array<Object> }}
+ */
+function transformOpenAiContentClone(clone, currentPageUrl) {
+  if (!clone) return { modelSections: [] };
+
+  const normalizeWhitespace = (text = '') => text.replace(/\s+/g, ' ').trim();
+  const getVisibleText = (element) => {
+    const textClone = element.cloneNode(true);
+    textClone
+      .querySelectorAll(
+        'script, style, noscript, template, img, svg, [aria-hidden="true"], [aria-live], .sr-only, [hidden]'
+      )
+      .forEach((node) => node.remove());
+
+    return normalizeWhitespace(textClone.textContent || '');
+  };
+
+  const decodeAstroValue = (value) => {
+    if (Array.isArray(value) && value.length === 2 && typeof value[0] === 'number') {
+      const [type, payload] = value;
+
+      if (type === 1 && Array.isArray(payload)) {
+        return payload.map(decodeAstroValue);
+      }
+
+      return decodeAstroValue(payload);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(decodeAstroValue);
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, nestedValue]) => [key, decodeAstroValue(nestedValue)])
+      );
+    }
+
+    return value;
+  };
+
+  const parseModelCard = (island) => {
+    if (!island) return null;
+
+    let props;
+    try {
+      props = decodeAstroValue(JSON.parse(island.getAttribute('props') || '{}'));
+    } catch {
+      props = {};
+    }
+
+    const name = normalizeWhitespace(
+      props.name
+        || island.querySelector('img')?.getAttribute('alt')
+        || island.querySelector('.heading-md, .heading-sm, h3, h4')?.textContent
+        || ''
+    );
+    const description = normalizeWhitespace(
+      props.description || island.querySelector('p')?.textContent || ''
+    );
+    const command = normalizeWhitespace(
+      island.querySelector('.font-mono')?.textContent || (name ? `codex -m ${name}` : '')
+    );
+    const features = Array.isArray(props.data?.features)
+      ? props.data.features
+        .map((feature) => {
+          const title = normalizeWhitespace(feature?.title || '');
+          if (!title) return null;
+
+          return {
+            title,
+            value: typeof feature?.value === 'boolean' ? feature.value : normalizeWhitespace(feature?.value || ''),
+            iconCount: Array.isArray(feature?.icons) ? feature.icons.length : 0,
+          };
+        })
+        .filter(Boolean)
+      : [];
+
+    if (!name && !description && !command && features.length === 0) {
+      return null;
+    }
+
+    return {
+      name,
+      description,
+      command,
+      features,
+    };
+  };
+
+  const collectModelSections = () => {
+    if (!/\/codex\/models\/?$/.test(currentPageUrl || '')) {
+      return [];
+    }
+
+    const sections = [];
+    const sectionHeadings = Array.from(clone.querySelectorAll('h2'));
+
+    sectionHeadings.forEach((heading) => {
+      const headingText = normalizeWhitespace(heading.textContent || '');
+      if (!['Recommended models', 'Alternative models'].includes(headingText)) {
+        return;
+      }
+
+      let grid = heading.nextElementSibling;
+      while (grid && !grid.querySelector?.('astro-island[component-url*="ModelDetails"]')) {
+        if (/^H2$/i.test(grid.tagName)) {
+          grid = null;
+          break;
+        }
+        grid = grid.nextElementSibling;
+      }
+
+      if (!grid) {
+        return;
+      }
+
+      const cards = Array.from(
+        grid.querySelectorAll('astro-island[component-url*="ModelDetails"]')
+      )
+        .map(parseModelCard)
+        .filter(Boolean);
+
+      if (cards.length === 0) {
+        return;
+      }
+
+      const notes = [];
+      let sibling = grid.nextElementSibling;
+      while (sibling && !/^H2$/i.test(sibling.tagName)) {
+        const text = getVisibleText(sibling);
+        if (text && !sibling.querySelector?.('astro-island[component-url*="ModelDetails"]')) {
+          notes.push(text);
+        }
+        sibling = sibling.nextElementSibling;
+      }
+
+      sections.push({
+        heading: headingText,
+        cards,
+        notes,
+      });
+    });
+
+    return sections;
+  };
+
+  const openAiModelSections = collectModelSections();
+
+  clone
+    .querySelectorAll(
+      'script, noscript, style, template, [data-page-copy-action], .page-copy-action, [data-anchor-id], [data-codex-screenshot-overlay]'
+    )
+    .forEach((node) => node.remove());
+
+  const normalizePagerLabel = (text = '') => normalizeWhitespace(text).toLowerCase();
+
+  const getPagerLinkInfo = (link) => {
+    if (!link) return null;
+
+    const label = normalizePagerLabel(link.textContent || '');
+    if (!label) return null;
+
+    const segments = Array.from(link.querySelectorAll('div, span, p, strong, small'))
+      .map((node) => normalizePagerLabel(getVisibleText(node)))
+      .filter(Boolean);
+
+    const exactSegmentKind = segments.find((segment) => segment === 'previous' || segment === 'next');
+    if (exactSegmentKind) {
+      return {
+        kind: exactSegmentKind,
+        exact: true,
+        hasTitle: segments.some((segment) => segment !== exactSegmentKind) || label !== exactSegmentKind,
+      };
+    }
+
+    if (label === 'previous' || label === 'next') {
+      return {
+        kind: label,
+        exact: true,
+        hasTitle: false,
+      };
+    }
+
+    const titledMatch = label.match(/^(previous|next)\s+\S/);
+    if (titledMatch) {
+      return {
+        kind: titledMatch[1],
+        exact: false,
+        hasTitle: true,
+      };
+    }
+
+    return null;
+  };
+
+  const shouldStripPagerLinks = (linkInfos, { requireExact = false } = {}) => {
+    if (!Array.isArray(linkInfos) || linkInfos.length === 0 || linkInfos.length > 2) {
+      return false;
+    }
+
+    if (linkInfos.some((info) => !info)) {
+      return false;
+    }
+
+    if (requireExact && linkInfos.some((info) => !info.exact)) {
+      return false;
+    }
+
+    const hasPrevious = linkInfos.some((info) => info.kind === 'previous');
+    const hasNext = linkInfos.some((info) => info.kind === 'next');
+
+    if (hasPrevious && hasNext) {
+      return true;
+    }
+
+    if (linkInfos.length === 1) {
+      return linkInfos[0].exact && !linkInfos[0].hasTitle;
+    }
+
+    return false;
+  };
+
+  clone.querySelectorAll('nav').forEach((nav) => {
+    const linkInfos = Array.from(nav.querySelectorAll('a')).map(getPagerLinkInfo);
+    const isPagerNav = shouldStripPagerLinks(linkInfos, { requireExact: true });
+
+    if (isPagerNav) {
+      nav.remove();
+    }
+  });
+
+  const normalizePanelLabel = (label) => {
+    if (!label) return '';
+
+    const lower = label.toLowerCase();
+    if (lower === 'app') return 'App (Recommended)';
+    if (lower === 'ide') return 'IDE extension';
+    if (lower === 'cli') return 'CLI';
+    if (lower === 'cloud') return 'Cloud';
+
+    return label;
+  };
+
+  const tabPanels = Array.from(clone.querySelectorAll('[data-panel][role="region"], [role="tabpanel"]'));
+  const tabLists = Array.from(clone.querySelectorAll('[role="tablist"]'));
+
+  tabLists.forEach((tabList) => {
+    if (tabPanels.length === 0) {
+      const labels = Array.from(tabList.querySelectorAll('[role="tab"], button'))
+        .map((button) => normalizePanelLabel(getVisibleText(button)))
+        .filter(Boolean);
+
+      if (labels.length > 1 && tabList.parentNode) {
+        const list = document.createElement('ul');
+        labels.forEach((label) => {
+          const item = document.createElement('li');
+          item.textContent = label;
+          list.appendChild(item);
+        });
+        tabList.parentNode.insertBefore(list, tabList);
+      }
+    }
+
+    tabList.remove();
+  });
+
+  if (tabPanels.length > 0) {
+    tabPanels.forEach((panel) => {
+      panel.removeAttribute('hidden');
+      panel.setAttribute('aria-hidden', 'false');
+
+      const label = normalizePanelLabel(
+        normalizeWhitespace(panel.getAttribute('aria-label') || panel.getAttribute('data-panel') || '')
+      );
+
+      if (!label || !panel.parentNode) {
+        return;
+      }
+
+      const previousElement = panel.previousElementSibling;
+      if (
+        previousElement &&
+        /^H[1-6]$/.test(previousElement.tagName) &&
+        normalizeWhitespace(previousElement.textContent || '') === label
+      ) {
+        return;
+      }
+
+      const heading = document.createElement('h3');
+      heading.textContent = label;
+      panel.parentNode.insertBefore(heading, panel);
+    });
+  }
+
+  clone.querySelectorAll('[data-codex-screenshot-root]').forEach((root) => {
+    const inlineImage =
+      root.querySelector('img[data-codex-screenshot-inline-image]') ||
+      Array.from(root.querySelectorAll('img')).find(
+        (image) => !image.closest('[data-codex-screenshot-overlay]')
+      );
+
+    if (!inlineImage) {
+      root.remove();
+      return;
+    }
+
+    const figure = document.createElement('figure');
+    const imageClone = inlineImage.cloneNode(true);
+    imageClone.removeAttribute('style');
+    imageClone.removeAttribute('class');
+    figure.appendChild(imageClone);
+    root.replaceWith(figure);
+  });
+
+  clone.querySelectorAll('button').forEach((button) => {
+    const label = button.getAttribute('aria-label') || '';
+    const text = getVisibleText(button);
+    const copiedBadge = Array.from(button.querySelectorAll('[aria-hidden="true"]')).some((node) =>
+      /copied/i.test(node.textContent || '')
+    );
+    const hasExampleIcon = !!button.querySelector('img[src*="/codex/colorcons/"]');
+
+    if (copiedBadge || hasExampleIcon) {
+      if (!text) {
+        button.remove();
+        return;
+      }
+
+      const paragraph = document.createElement('p');
+      paragraph.textContent = text;
+      button.replaceWith(paragraph);
+      return;
+    }
+
+    if (!text || /copy|close|open/i.test(label)) {
+      button.remove();
+    }
+  });
+
+  return { modelSections: openAiModelSections };
+}
+
+/**
  * developers.openai.com: Markdown post-processing for its Next.js docs build
  * (wrapped card links, pager navigation, theme-variant screenshot pairs, the
  * Codex models page, ...). Kept out of the generic MarkdownService.
  */
 export class OpenAiDocsMarkdown {
+  static id = 'openai-docs';
+
+  /** Browser-side DOM step; see transformOpenAiContentClone. */
+  static transformContentClone = transformOpenAiContentClone;
+
   /**
    * @param {{ resolveResourceUrl: (target: string, pageUrl: string) => string }} helpers
    */
@@ -22,9 +377,9 @@ export class OpenAiDocsMarkdown {
     }
   }
 
-  /** Markdown produced from the DOM, before sanitizing. */
-  normalizeExtractedMarkdown(markdown, { pageUrl, modelSections = [] } = {}) {
-    return this._normalizeOpenAiModelsPage(markdown, modelSections, pageUrl);
+  /** Markdown produced from the DOM, before sanitizing; siteData comes from transformContentClone. */
+  normalizeExtractedMarkdown(markdown, { pageUrl, siteData = {} } = {}) {
+    return this._normalizeOpenAiModelsPage(markdown, siteData.modelSections || [], pageUrl);
   }
 
   /** Site-specific cleanup run by MarkdownService.sanitizeMarkdown. */
