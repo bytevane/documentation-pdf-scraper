@@ -66,6 +66,9 @@ export class AnnotationService {
     this.cacheReady = this.enabled
       ? fs.mkdir(this.cacheDir, { recursive: true })
       : Promise.resolve();
+    // Cache reads/writes await cacheReady and report its error; a service that never
+    // touches the cache must not turn a failed mkdir into an unhandled rejection.
+    this.cacheReady.catch(() => {});
 
     const fallback = this.annotationConfig.fallback || {};
     this.primaryClient = options.primaryClient || new AgyAnnotationClient({
