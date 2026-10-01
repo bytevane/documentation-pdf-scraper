@@ -5,15 +5,7 @@ import {
   ANNOTATION_CONTRACT_VERSION,
   ANNOTATION_RENDER_VERSION,
 } from './annotationContract.js';
-
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().filter((key) => value[key] !== undefined)
-      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
+import { stableJson } from '../utils/object.js';
 
 export class StateManager extends EventEmitter {
   constructor(fileService, pathService, logger, options = {}) {

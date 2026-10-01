@@ -1,18 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { validateConfig } from './configValidator.js';
+import { isPathInside } from '../utils/paths.js';
+import { deepMerge } from '../utils/object.js';
+import { DOC_TARGET_ALIASES } from './docTargets.js';
 import { createLogger } from '../utils/logger.js';
 import { assertLayoutLayerCompatibility } from '../services/pdf/layouts/layoutConfig.js';
-
-const DOC_TARGETS = {
-  openai: 'openai-docs.json',
-  openclaw: 'openclaw-zh-cn.json',
-  'claude-code': 'claude-code.json',
-  'cloudflare-blog': 'cloudflare-blog.json',
-  'anthropic-research': 'anthropic-research.json',
-  'claude-blog': 'claude-blog.json',
-  'claude-dev-blog': 'claude-dev-blog.json',
-};
 
 /**
  * 配置加载器类
@@ -111,17 +104,14 @@ class ConfigLoader {
       // 1. 处理路径配置
       processedConfig.pdfDir = this.resolvePath(config.pdfDir);
 
-      // 处理其他可能的路径配置
-      if (config.filesystem?.tempDirectory) {
-        processedConfig.filesystem.tempDirectory = this.resolvePath(
-          config.filesystem.tempDirectory
-        );
-      }
-
-      if (config.filesystem?.metadataDirectory) {
-        processedConfig.filesystem.metadataDirectory = this.resolvePath(
-          config.filesystem.metadataDirectory
-        );
+      // 处理其他可能的路径配置（复制 filesystem，避免修改调用方的对象）
+      if (config.filesystem) {
+        processedConfig.filesystem = { ...config.filesystem };
+        for (const key of ['tempDirectory', 'metadataDirectory']) {
+          if (config.filesystem[key]) {
+            processedConfig.filesystem[key] = this.resolvePath(config.filesystem[key]);
+          }
+        }
       }
 
       // 2. 处理域名配置
@@ -207,10 +197,10 @@ class ConfigLoader {
       return directPath;
     }
 
-    // 2) 向后兼容：使用预定义映射（如 openai -> openai-docs.json）
-    const mapped = DOC_TARGETS[docTarget];
-    if (mapped) {
-      const mappedPath = path.resolve(targetsDir, mapped);
+    // 2) 向后兼容：使用别名（如 openai -> openai-docs.json）
+    const alias = DOC_TARGET_ALIASES[docTarget];
+    if (alias) {
+      const mappedPath = path.resolve(targetsDir, `${alias}.json`);
       if (await this.isReadableFile(mappedPath)) {
         return mappedPath;
       }
@@ -224,11 +214,7 @@ class ConfigLoader {
    * @private
    */
   assertPathInsideConfigDir(targetPath) {
-    const configDir = path.resolve(path.dirname(this.configPath));
-    const resolvedTarget = path.resolve(targetPath);
-    const relative = path.relative(configDir, resolvedTarget);
-
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    if (!isPathInside(path.dirname(this.configPath), targetPath)) {
       throw new Error(`Unsafe doc target path (outside config dir): ${targetPath}`);
     }
   }
@@ -265,21 +251,7 @@ class ConfigLoader {
    * @private
    */
   deepMerge(target, source) {
-    if (!target || typeof target !== 'object') target = {};
-    if (!source || typeof source !== 'object') return target;
-
-    const result = { ...target };
-
-    for (const key of Object.keys(source)) {
-      const value = source[key];
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        result[key] = this.deepMerge(result[key] || {}, value);
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
+    return deepMerge(target, source);
   }
 
   /**

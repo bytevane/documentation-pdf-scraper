@@ -263,13 +263,30 @@ describe('Scraper', () => {
         expect.any(Function)
       );
       expect(mockDependencies.queueManager.on).toHaveBeenCalledWith(
-        'taskCompleted',
+        'taskSuccess',
         expect.any(Function)
       );
       expect(mockDependencies.queueManager.on).toHaveBeenCalledWith(
         'taskFailed',
         expect.any(Function)
       );
+    });
+
+    it('should read the URL and error from QueueManager event payloads', () => {
+      const handlerFor = (event) =>
+        mockDependencies.queueManager.on.mock.calls.find(([name]) => name === event)[1];
+      const task = { id: 'scrape-0', url: 'https://example.com/page' };
+
+      expect(() =>
+        handlerFor('taskFailed')({ id: task.id, error: new Error('boom'), task })
+      ).not.toThrow();
+      expect(mockDependencies.logger.warn).toHaveBeenCalledWith('任务失败', {
+        url: task.url,
+        error: 'boom',
+      });
+
+      handlerFor('taskSuccess')({ id: task.id, result: undefined, task });
+      expect(mockDependencies.logger.debug).toHaveBeenCalledWith('任务完成', { url: task.url });
     });
   });
 
@@ -278,8 +295,9 @@ describe('Scraper', () => {
       await scraper.initialize();
 
       expect(mockDependencies.browserPool.initialize).not.toHaveBeenCalled();
-      expect(mockDependencies.stateManager.load).toHaveBeenCalled();
-      expect(mockDependencies.queueManager.setConcurrency).toHaveBeenCalledWith(3);
+      // The container loads state and sizes the queue; initialize must not repeat it.
+      expect(mockDependencies.stateManager.load).not.toHaveBeenCalled();
+      expect(mockDependencies.queueManager.setConcurrency).not.toHaveBeenCalled();
       expect(mockDependencies.fileService.ensureDirectory).toHaveBeenCalledWith('./pdfs');
       expect(mockDependencies.fileService.ensureDirectory).toHaveBeenCalledWith('pdfs/metadata');
       expect(scraper.isInitialized).toBe(true);
@@ -295,7 +313,7 @@ describe('Scraper', () => {
 
     it('should handle initialization errors', async () => {
       const error = new Error('Init failed');
-      mockDependencies.stateManager.load.mockRejectedValue(error);
+      mockDependencies.fileService.ensureDirectory.mockRejectedValue(error);
 
       await expect(scraper.initialize()).rejects.toThrow(error);
       expect(mockDependencies.logger.error).toHaveBeenCalledWith(
@@ -411,7 +429,7 @@ describe('Scraper', () => {
       scraper.config.urlCollectionWaitUntil = 'load';
       mockPage.evaluate.mockResolvedValue([]);
 
-      const urls = await scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/section1', [
+      const urls = await scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/section1', [
         'https://example.com/section1',
       ]);
 
@@ -425,10 +443,39 @@ describe('Scraper', () => {
       );
     });
 
+    it('should fail fast on a 4xx entry page instead of scraping the error page', async () => {
+      mockPage.goto.mockResolvedValue({ status: () => 404 });
+
+      await expect(
+        scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/missing', [])
+      ).rejects.toMatchObject({ details: { status: 404 } });
+      expect(mockPage.goto).toHaveBeenCalledTimes(1);
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('should retry a 5xx entry page', async () => {
+      vi.useFakeTimers();
+      try {
+        scraper.config.maxRetries = 2;
+        mockPage.goto
+          .mockResolvedValueOnce({ status: () => 503 })
+          .mockResolvedValueOnce({ status: () => 200 });
+        mockPage.evaluate.mockResolvedValue([]);
+
+        const collecting = scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/a', []);
+        await vi.runAllTimersAsync();
+
+        await expect(collecting).resolves.toEqual(['https://example.com/a']);
+        expect(mockPage.goto).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('should filter other entry points (ignore hash/query) and non-http(s) URLs', async () => {
       scraper.config.navExcludeSelector = '.nav-tabs';
 
-      const getEntryPointsSpy = vi.spyOn(scraper, '_getEntryPoints');
+      const getEntryPointsSpy = vi.spyOn(scraper.urlCollector, '_getEntryPoints');
 
       mockPage.evaluate.mockResolvedValue([
         'https://example.com/page1',
@@ -441,7 +488,7 @@ describe('Scraper', () => {
         'javascript:void(0)',
       ]);
 
-      const urls = await scraper._collectUrlsFromEntryPoint(
+      const urls = await scraper.urlCollector._collectUrlsFromEntryPoint(
         mockPage,
         'https://example.com/section1',
         ['https://example.com/section1', 'https://example.com/section2']
@@ -454,27 +501,27 @@ describe('Scraper', () => {
 
   describe('validateUrl', () => {
     it('should accept valid URLs', () => {
-      expect(scraper.validateUrl('https://example.com/page')).toBe(true);
-      expect(scraper.validateUrl('http://example.com/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://example.com/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('http://example.com/page')).toBe(true);
     });
 
     it('should reject invalid URLs', () => {
-      expect(scraper.validateUrl('invalid-url')).toBe(false);
-      expect(scraper.validateUrl('ftp://example.com')).toBe(false);
-      expect(scraper.validateUrl('')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('invalid-url')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('ftp://example.com')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('')).toBe(false);
     });
 
     it('should check allowed domains', () => {
-      expect(scraper.validateUrl('https://other.com')).toBe(false);
-      expect(scraper.validateUrl('https://example.com')).toBe(true);
-      expect(scraper.validateUrl('https://sub.example.com')).toBe(true);
-      expect(scraper.validateUrl('https://test.sub.example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://other.com')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('https://example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://sub.example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://test.sub.example.com')).toBe(true);
     });
 
     it('should filter by baseUrl if configured', () => {
       scraper.config.baseUrl = 'https://example.com/docs';
-      expect(scraper.validateUrl('https://example.com/docs/page')).toBe(true);
-      expect(scraper.validateUrl('https://example.com/other/page')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('https://example.com/docs/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://example.com/other/page')).toBe(false);
     });
   });
 
@@ -482,14 +529,14 @@ describe('Scraper', () => {
     it('should check ignored patterns', () => {
       scraper.config.ignoreURLs = ['/admin', /\.pdf$/];
 
-      expect(scraper.isIgnored('https://example.com/admin/page')).toBe(true);
-      expect(scraper.isIgnored('https://example.com/file.pdf')).toBe(true);
-      expect(scraper.isIgnored('https://example.com/normal/page')).toBe(false);
+      expect(scraper.urlCollector.isIgnored('https://example.com/admin/page')).toBe(true);
+      expect(scraper.urlCollector.isIgnored('https://example.com/file.pdf')).toBe(true);
+      expect(scraper.urlCollector.isIgnored('https://example.com/normal/page')).toBe(false);
     });
 
     it('should handle missing ignoreURLs config', () => {
       scraper.config.ignoreURLs = null;
-      expect(scraper.isIgnored('any-url')).toBe(false);
+      expect(scraper.urlCollector.isIgnored('any-url')).toBe(false);
     });
   });
 
@@ -569,7 +616,7 @@ describe('Scraper', () => {
     it('should handle content not found', async () => {
       mockPage.waitForSelector.mockRejectedValue(new Error('Timeout'));
 
-      await expect(scraper.scrapePage(testUrl, testIndex)).rejects.toThrow(NetworkError);
+      await expect(scraper.scrapePage(testUrl, testIndex)).rejects.toThrow(ValidationError);
       expect(mockDependencies.logger.warn).toHaveBeenCalledWith(
         '内容选择器等待超时',
         expect.any(Object)
@@ -746,9 +793,9 @@ describe('Scraper', () => {
       expect(scraper.initialize).toHaveBeenCalled();
       expect(scraper.collectUrls).toHaveBeenCalled();
       expect(mockDependencies.stateManager.setStartTime).toHaveBeenCalledTimes(1);
-      expect(mockDependencies.stateManager.setUrlIndex).toHaveBeenCalledWith(
-        'https://example.com/page1',
-        0
+      expect(mockDependencies.stateManager.prepareRun).toHaveBeenCalledWith(
+        ['https://example.com/page1'],
+        mockDependencies.config
       );
       expect(mockDependencies.progressTracker.start).toHaveBeenCalledWith(1);
       expect(mockDependencies.queueManager.addTask).toHaveBeenCalled();

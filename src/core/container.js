@@ -1,5 +1,9 @@
 import { createLogger } from '../utils/logger.js';
 
+function isClass(value) {
+  return typeof value === 'function' && /^class[\s{]/.test(Function.prototype.toString.call(value));
+}
+
 /**
  * 依赖注入容器
  * 管理所有服务的生命周期和依赖关系
@@ -8,6 +12,7 @@ class Container {
   constructor() {
     this.services = new Map();
     this.instances = new Map();
+    this.pending = new Map();
     this.logger = createLogger('Container');
   }
 
@@ -46,46 +51,46 @@ class Container {
       return this.instances.get(name);
     }
 
+    // 单例正在创建中：复用同一个 Promise，避免并发 get() 创建多个实例
+    if (this.pending.has(name)) {
+      return this.pending.get(name);
+    }
+
     const serviceConfig = this.services.get(name);
     if (!serviceConfig) {
       throw new Error(`Service '${name}' not found`);
     }
 
-    // 解析依赖
+    if (!serviceConfig.singleton) {
+      return this.createInstance(name, serviceConfig);
+    }
+
+    const creation = this.createInstance(name, serviceConfig);
+    this.pending.set(name, creation);
+    try {
+      const instance = await creation;
+      this.instances.set(name, instance);
+      return instance;
+    } finally {
+      this.pending.delete(name);
+    }
+  }
+
+  async createInstance(name, serviceConfig) {
     const dependencies = await this.resolveDependencies(serviceConfig.dependencies);
+    const { factory } = serviceConfig;
 
     let instance;
-
-    // 创建实例
-    if (typeof serviceConfig.factory === 'function') {
-      // 检查是否是类构造函数
-      if (
-        serviceConfig.factory.prototype &&
-        serviceConfig.factory.prototype.constructor === serviceConfig.factory
-      ) {
-        // 构造函数
-        instance = new serviceConfig.factory(...dependencies);
-      } else {
-        // 工厂函数
-        instance = serviceConfig.factory(...dependencies);
-      }
+    if (isClass(factory)) {
+      instance = new factory(...dependencies);
+    } else if (typeof factory === 'function') {
+      instance = await factory(...dependencies);
     } else {
       // 直接对象或值
-      instance = serviceConfig.factory;
-    }
-
-    // 如果返回Promise，等待解析
-    if (instance && typeof instance.then === 'function') {
-      instance = await instance;
-    }
-
-    // 如果是单例，缓存实例
-    if (serviceConfig.singleton) {
-      this.instances.set(name, instance);
+      instance = factory;
     }
 
     serviceConfig.created = true;
-
     this.logger.debug(`Created service instance: ${name}`);
     return instance;
   }
@@ -196,6 +201,7 @@ class Container {
 
     // 清空容器
     this.instances.clear();
+    this.pending.clear();
     this.services.clear();
 
     this.logger.info('Container disposed successfully');

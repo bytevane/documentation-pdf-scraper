@@ -27,7 +27,7 @@ export class PathService {
   }
 
   /**
-   * 获取PDF文件的完整路径 - 修复：支持数字索引优先
+   * 获取PDF文件的完整路径
    */
   getPdfPath(url, options = {}) {
     const { useHash = true, index = null } = options;
@@ -45,7 +45,7 @@ export class PathService {
     // 确定目录
     const directory = this.determineDirectory(url);
 
-    // 🔥 关键修改：构建文件名 - 数字索引优先，带补零
+    // 构建文件名 - 数字索引优先，带补零
     let finalFileName;
 
     if (!useHash && index !== null) {
@@ -87,29 +87,6 @@ export class PathService {
   }
 
   /**
-   * 获取最终PDF输出路径
-   */
-  getFinalPdfPath(name) {
-    const finalDir = path.join(this.config.pdfDir, 'finalPdf');
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    return path.join(finalDir, `${name}_${date}.pdf`);
-  }
-
-  /**
-   * 获取日志文件路径
-   */
-  getLogPath(type = 'combined') {
-    const logDir = path.join(process.cwd(), 'logs');
-    const logFiles = {
-      combined: 'combined.log',
-      error: 'error.log',
-      progress: 'progress.log',
-    };
-
-    return path.join(logDir, logFiles[type] || `${type}.log`);
-  }
-
-  /**
    * 解析PDF文件名，提取信息 - 改进：支持数字和哈希前缀
    */
   parsePdfFileName(fileName) {
@@ -144,47 +121,11 @@ export class PathService {
   }
 
   /**
-   * 获取临时文件路径
-   */
-  getTempPath(filename) {
-    const tempDir = path.join(this.config.pdfDir, '.temp');
-    return path.join(tempDir, filename);
-  }
-
-  /**
    * 获取临时目录路径
    */
   getTempDirectory() {
     const tempDir = this.config.output?.tempDirectory || '.temp';
     return path.resolve(tempDir);
-  }
-
-  /**
-   * 根据索引生成标准化的PDF文件名 - 新增方法
-   */
-  generateIndexedFileName(url, index) {
-    return this.getPdfPath(url, { useHash: false, index });
-  }
-
-  /**
-   * 根据哈希生成PDF文件名 - 新增方法
-   */
-  generateHashedFileName(url) {
-    return this.getPdfPath(url, { useHash: true });
-  }
-
-  /**
-   * 验证文件名格式 - 新增方法
-   */
-  validateFileName(fileName) {
-    const parsed = this.parsePdfFileName(fileName);
-
-    return {
-      isValid: parsed.isNumericIndex || parsed.isHash || !parsed.prefix,
-      type: parsed.isNumericIndex ? 'indexed' : parsed.isHash ? 'hashed' : 'simple',
-      index: parsed.index,
-      originalName: parsed.originalName,
-    };
   }
 
   /**

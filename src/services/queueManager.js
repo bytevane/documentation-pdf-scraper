@@ -77,6 +77,7 @@ export class QueueManager extends EventEmitter {
     const task = {
       id,
       fn,
+      url: options.url,
       priority: options.priority || 0,
       addedAt: Date.now(),
       status: 'pending',
@@ -128,14 +129,6 @@ export class QueueManager extends EventEmitter {
       // Re-throw to preserve API contract — callers must handle rejections
       throw error;
     });
-  }
-
-  /**
-   * 批量添加任务
-   */
-  async addBatch(tasks) {
-    const promises = tasks.map(({ id, fn, options }) => this.addTask(id, fn, options));
-    return Promise.allSettled(promises);
   }
 
   /**

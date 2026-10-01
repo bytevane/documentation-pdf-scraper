@@ -66,6 +66,16 @@ describe('AnnotationService', () => {
     });
   }
 
+  it('does not leave a failed cache directory creation as an unhandled rejection', async () => {
+    const notADirectory = path.join(cacheDir, 'file');
+    await fs.writeFile(notADirectory, '');
+    const service = createService({ cacheDir: path.join(notADirectory, 'cache') });
+
+    // Vitest fails the run on unhandled rejections, so letting the mkdir settle is the check.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await expect(service.cacheReady).rejects.toMatchObject({ code: 'ENOTDIR' });
+  });
+
   it('annotates eligible English paragraphs and list prose without rewriting protected content', async () => {
     const markdown = [
       '---',

@@ -8,6 +8,9 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isPathInside } from '../src/utils/paths.js';
+import { deepMerge } from '../src/utils/object.js';
+import { DOC_TARGET_ALIASES, listDocTargets } from '../src/config/docTargets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -15,29 +18,13 @@ const rootDir = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.resolve(rootDir, 'config.json');
 const TARGETS_DIR = path.resolve(rootDir, 'doc-targets');
 
-const DOC_TARGETS = {
-  openai: 'openai-docs.json',
-  openclaw: 'openclaw-zh-cn.json',
-  'claude-code': 'claude-code.json',
-  'cloudflare-blog': 'cloudflare-blog.json',
-  'anthropic-research': 'anthropic-research.json',
-  'claude-blog': 'claude-blog.json',
-  'claude-dev-blog': 'claude-dev-blog.json',
-};
-
 function validateSafePath(targetPath) {
-  const resolved = path.resolve(targetPath);
-  const relative = path.relative(rootDir, resolved);
-  return !(relative.startsWith('..') || path.isAbsolute(relative));
+  return isPathInside(rootDir, targetPath);
 }
 
 function assertPathInsideDirectory(baseDir, targetPath) {
-  const resolvedBase = path.resolve(baseDir);
-  const resolvedTarget = path.resolve(targetPath);
-  const relative = path.relative(resolvedBase, resolvedTarget);
-
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Unsafe path (outside ${resolvedBase}): ${targetPath}`);
+  if (!isPathInside(baseDir, targetPath)) {
+    throw new Error(`Unsafe path (outside ${path.resolve(baseDir)}): ${targetPath}`);
   }
 }
 
@@ -78,9 +65,9 @@ function resolveDocTargetConfigPath(docTarget) {
   }
 
   // 2) 向后兼容：使用别名映射（如 openai -> openai-docs.json）
-  const mappedFileName = DOC_TARGETS[trimmed];
-  if (mappedFileName) {
-    const mappedPath = path.resolve(TARGETS_DIR, mappedFileName);
+  const alias = DOC_TARGET_ALIASES[trimmed];
+  if (alias) {
+    const mappedPath = path.resolve(TARGETS_DIR, `${alias}.json`);
     assertPathInsideDirectory(TARGETS_DIR, mappedPath);
     if (isReadableFile(mappedPath)) {
       return mappedPath;
@@ -88,24 +75,6 @@ function resolveDocTargetConfigPath(docTarget) {
   }
 
   throw new Error(`Doc target config not found for: ${trimmed}`);
-}
-
-function deepMerge(target, source) {
-  if (!target || typeof target !== 'object') target = {};
-  if (!source || typeof source !== 'object') return target;
-
-  const result = { ...target };
-
-  for (const key of Object.keys(source)) {
-    const value = source[key];
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      result[key] = deepMerge(result[key] || {}, value);
-    } else {
-      result[key] = value;
-    }
-  }
-
-  return result;
 }
 
 function validateConfigStructure(config) {
@@ -171,24 +140,18 @@ function showHelp() {
 
 function listTargets() {
   console.log('可用文档站点配置:');
-  console.log('\n别名（推荐）:');
-  for (const [key, file] of Object.entries(DOC_TARGETS)) {
-    console.log(`  - ${key} (${file})`);
-  }
-
   console.log('\ndoc-targets/*.json:');
   try {
-    const files = fs
-      .readdirSync(TARGETS_DIR)
-      .filter((f) => f.endsWith('.json'))
-      .sort((a, b) => a.localeCompare(b));
-
-    for (const file of files) {
-      const name = path.basename(file, '.json');
+    for (const name of listDocTargets(TARGETS_DIR)) {
       console.log(`  - ${name}`);
     }
   } catch {
     console.log('  (无法读取 doc-targets 目录)');
+  }
+
+  console.log('\n别名（向后兼容）:');
+  for (const [alias, name] of Object.entries(DOC_TARGET_ALIASES)) {
+    console.log(`  - ${alias} -> ${name}`);
   }
 }
 

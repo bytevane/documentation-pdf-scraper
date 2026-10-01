@@ -383,7 +383,8 @@ describe('setup', () => {
 
       const config = await configFactory();
       expect(ConfigLoader).toHaveBeenCalled();
-      expect(validateConfig).toHaveBeenCalledWith({ test: true });
+      // ConfigLoader.load() already validates; setup must not validate twice.
+      expect(validateConfig).not.toHaveBeenCalled();
 
       // Test logger service factory
       const loggerFactory = mockContainer.register.mock.calls.find(
@@ -628,10 +629,11 @@ describe('setup', () => {
         (call) => call[0] === 'queueManager'
       )[1];
 
+      // concurrency comes from the validated config (schema default 5), not a second fallback.
       const { QueueManager } = await import('../../src/services/queueManager.js');
-      queueManagerFactory({}, {});
+      queueManagerFactory({ concurrency: 7 }, {});
       expect(QueueManager).toHaveBeenCalledWith({
-        concurrency: 5,
+        concurrency: 7,
         timeout: undefined,
         logger: {},
       });
@@ -691,6 +693,7 @@ describe('setup', () => {
       expect(BrowserPool).toHaveBeenCalledWith({
         maxBrowsers: 3,
         headless: true,
+        disableWebSecurity: false,
         logger: 'logger',
       });
       expect(browserPool.initialize).not.toHaveBeenCalled();

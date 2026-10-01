@@ -6,7 +6,6 @@
 import { EventEmitter } from 'events';
 import { ProcessRunner } from '../utils/processRunner.js';
 import path from 'path';
-import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { createLogger } from '../utils/logger.js';
 
@@ -69,32 +68,6 @@ export class PythonMergeService extends EventEmitter {
     };
 
     this.logger.info('Python合并服务初始化完成');
-  }
-
-  /**
-   * 验证Python环境和脚本
-   */
-  async validateEnvironment() {
-    try {
-      // 检查Python脚本是否存在
-      await fs.access(this.mergerScript);
-
-      // 检查Python可执行文件
-      const result = await this._executePython(['-c', 'import sys; print(sys.version)']);
-      this.logger.info(`Python环境验证成功: ${result.stdout.trim()}`);
-
-      // 检查PyMuPDF依赖
-      await this._executePython(['-c', 'import pymupdf; print("PyMuPDF version:", pymupdf.version)']);
-      this.logger.info('PyMuPDF依赖验证成功');
-
-      return true;
-    } catch (error) {
-      throw new PythonMergeError(
-        `Python环境验证失败: ${error.message}`,
-        'ENVIRONMENT_VALIDATION_FAILED',
-        { error: error.message }
-      );
-    }
   }
 
   /**
@@ -177,40 +150,6 @@ export class PythonMergeService extends EventEmitter {
   }
 
   /**
-   * 批量合并多个目录
-   */
-  async mergeBatch(directories = [], options = {}) {
-    const results = [];
-    const errors = [];
-
-    this.emit('batchStarted', { directories, options });
-
-    for (const directory of directories) {
-      try {
-        const result = await this.mergePDFs({
-          ...options,
-          directory,
-        });
-        results.push({ directory, result, success: true });
-      } catch (error) {
-        errors.push({ directory, error: error.message, success: false });
-      }
-    }
-
-    const batchResult = {
-      total: directories.length,
-      successful: results.length,
-      failed: errors.length,
-      results,
-      errors,
-    };
-
-    this.emit('batchCompleted', batchResult);
-
-    return batchResult;
-  }
-
-  /**
    * 停止当前运行的合并任务
    */
   async stopMerge() {
@@ -230,27 +169,6 @@ export class PythonMergeService extends EventEmitter {
       isRunning: this.isRunning,
       statistics: { ...this.statistics },
       config: this.pythonConfig,
-    };
-  }
-
-  /**
-   * 获取详细统计信息
-   */
-  getStatistics() {
-    return {
-      ...this.statistics,
-      successRate:
-        this.statistics.totalRuns > 0
-          ? ((this.statistics.successfulRuns / this.statistics.totalRuns) * 100).toFixed(2) + '%'
-          : '0%',
-      averageFilesPerRun:
-        this.statistics.successfulRuns > 0
-          ? Math.round(this.statistics.totalFilesProcessed / this.statistics.successfulRuns)
-          : 0,
-      averagePagesPerRun:
-        this.statistics.successfulRuns > 0
-          ? Math.round(this.statistics.totalPagesProcessed / this.statistics.successfulRuns)
-          : 0,
     };
   }
 

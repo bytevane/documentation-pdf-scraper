@@ -132,6 +132,15 @@ describe('QueueManager', () => {
       expect(queueManager.queue.add).toHaveBeenCalledWith(expect.any(Function), { priority: 10 });
     });
 
+    test('should keep the task URL on the task passed to events', async () => {
+      const fn = vi.fn().mockResolvedValue('success');
+      const eventPromise = new Promise((resolve) => queueManager.once('taskSuccess', resolve));
+
+      await queueManager.addTask('task1', fn, { url: 'https://example.com/a' });
+      const { task } = await eventPromise;
+      expect(task.url).toBe('https://example.com/a');
+    });
+
     test('应该在任务成功时发出taskSuccess事件', async () => {
       const fn = vi.fn().mockResolvedValue('success');
       const eventPromise = new Promise((resolve) => queueManager.once('taskSuccess', resolve));
@@ -213,45 +222,6 @@ describe('QueueManager', () => {
       expect(historyQueueManager.getTaskDetails('task-1')).toBeUndefined();
       expect(historyQueueManager.getTaskDetails('task-2')).toBeDefined();
       expect(historyQueueManager.getTaskDetails('task-3')).toBeDefined();
-    });
-  });
-
-  describe('addBatch', () => {
-    test('应该批量添加任务', async () => {
-      const tasks = [
-        { id: 'task1', fn: vi.fn().mockResolvedValue('result1') },
-        { id: 'task2', fn: vi.fn().mockResolvedValue('result2') },
-        { id: 'task3', fn: vi.fn().mockRejectedValue(new Error('error3')) },
-      ];
-
-      const results = await queueManager.addBatch(tasks);
-
-      expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ status: 'fulfilled', value: 'result1' });
-      expect(results[1]).toEqual({ status: 'fulfilled', value: 'result2' });
-      expect(results[2]).toEqual({
-        status: 'rejected',
-        reason: expect.objectContaining({ message: 'error3' }),
-      });
-
-      expect(queueManager.tasks.has('task1')).toBe(false);
-      expect(queueManager.tasks.has('task2')).toBe(false);
-      expect(queueManager.tasks.has('task3')).toBe(false);
-      expect(queueManager.getTaskDetails('task1').status).toBe('completed');
-      expect(queueManager.getTaskDetails('task2').status).toBe('completed');
-      expect(queueManager.getTaskDetails('task3').status).toBe('failed');
-    });
-
-    test('应该处理带选项的批量任务', async () => {
-      const tasks = [
-        { id: 'task1', fn: vi.fn().mockResolvedValue('result1'), options: { priority: 10 } },
-        { id: 'task2', fn: vi.fn().mockResolvedValue('result2'), options: { priority: 5 } },
-      ];
-
-      await queueManager.addBatch(tasks);
-
-      expect(queueManager.getTaskDetails('task1').priority).toBe(10);
-      expect(queueManager.getTaskDetails('task2').priority).toBe(5);
     });
   });
 

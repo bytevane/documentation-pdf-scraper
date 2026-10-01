@@ -1,6 +1,6 @@
 import { describe, it, test, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 
-import { NetworkError } from '../../src/utils/errors.js';
+import { BrowserError } from '../../src/utils/errors.js';
 
 // Mock puppeteer-extra and stealth plugin before importing BrowserPool
 vi.mock('puppeteer-extra');
@@ -140,7 +140,7 @@ describe('BrowserPool', () => {
     it('should throw if no browsers can be created', async () => {
       puppeteer.launch.mockRejectedValue(new Error('Browser creation failed'));
 
-      await expect(browserPool.initialize()).rejects.toThrow(NetworkError);
+      await expect(browserPool.initialize()).rejects.toThrow(BrowserError);
       expect(browserPool.isInitialized).toBe(false);
     });
 
@@ -172,6 +172,15 @@ describe('BrowserPool', () => {
       expect(browserPool.stats.created).toBe(1);
     });
 
+    it('keeps the same-origin policy on unless disableWebSecurity is set', async () => {
+      await browserPool.createBrowser();
+      expect(puppeteer.launch.mock.calls.at(-1)[0].args).not.toContain('--disable-web-security');
+
+      const insecurePool = new BrowserPool({ disableWebSecurity: true, logger: mockLogger });
+      await insecurePool.createBrowser();
+      expect(puppeteer.launch.mock.calls.at(-1)[0].args).toContain('--disable-web-security');
+    });
+
     it('should setup browser event listeners', async () => {
       const browser = await browserPool.createBrowser();
 
@@ -190,9 +199,12 @@ describe('BrowserPool', () => {
     });
 
     it('should handle creation errors', async () => {
-      puppeteer.launch.mockRejectedValue(new Error('Launch failed'));
+      const launchError = new Error('Launch failed');
+      puppeteer.launch.mockRejectedValue(launchError);
 
-      await expect(browserPool.createBrowser()).rejects.toThrow(NetworkError);
+      const error = await browserPool.createBrowser().catch((caught) => caught);
+      expect(error).toBeInstanceOf(BrowserError);
+      expect(error.cause).toBe(launchError);
       expect(browserPool.stats.errors).toBe(1);
     });
   });

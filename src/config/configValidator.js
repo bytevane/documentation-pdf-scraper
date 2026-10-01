@@ -162,6 +162,10 @@ const configSchema = Joi.object({
 
     devtools: Joi.boolean().default(false).description('Open browser devtools'),
 
+    disableWebSecurity: Joi.boolean()
+      .default(false)
+      .description('Launch Chromium with --disable-web-security (turns off same-origin policy)'),
+
     args: Joi.array()
       .items(Joi.string())
       .default([
@@ -689,7 +693,7 @@ function validateConfig(config, options = {}) {
   const validationOptions = {
     abortEarly: false,
     allowUnknown: options.allowUnknown || false,
-    stripUnknown: options.stripUnknown || true,
+    stripUnknown: options.stripUnknown ?? true,
     convert: options.convert !== false,
     ...options,
   };
@@ -697,23 +701,7 @@ function validateConfig(config, options = {}) {
   try {
     logger.debug('Starting configuration validation...');
 
-    // 🔍 诊断日志：记录 validation 前的配置
-    logger.debug('Config BEFORE validation', {
-      enablePDFStyleProcessing: config.enablePDFStyleProcessing,
-      type: typeof config.enablePDFStyleProcessing,
-      allKeys: Object.keys(config).filter((k) => k.includes('PDF') || k.includes('Style')),
-    });
-
     const { error, value, warning } = configSchema.validate(config, validationOptions);
-
-    // 🔍 诊断日志：记录 validation 后的配置
-    logger.debug('Config AFTER validation', {
-      enablePDFStyleProcessing: value?.enablePDFStyleProcessing,
-      type: typeof value?.enablePDFStyleProcessing,
-      allKeys: value
-        ? Object.keys(value).filter((k) => k.includes('PDF') || k.includes('Style'))
-        : [],
-    });
 
     if (error) {
       const errorMessage = error.details

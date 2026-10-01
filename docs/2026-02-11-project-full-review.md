@@ -1,5 +1,7 @@
 # Documentation PDF Scraper 项目全量梳理与设计评审（2026-02-11）
 
+> 历史文档：记录 2026-02-11 时的状态。之后测试已从 Jest 迁移到 Vitest（见 `docs/plans/2026-02-12-vitest-migration.md`），文中的 Jest / `jest.config.js` 均指当时的配置。
+
 ## 1. 审阅范围与方法
 
 ### 1.1 审阅范围

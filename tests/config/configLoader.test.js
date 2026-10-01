@@ -290,6 +290,17 @@ describe('ConfigLoader', () => {
   });
 
   describe('processConfig', () => {
+    test('resolves filesystem paths without mutating the input config', async () => {
+      const filesystem = { tempDirectory: 'tmp-dir', metadataDirectory: 'meta-dir' };
+      const config = { pdfDir: 'pdfs', rootURL: 'https://example.com', filesystem };
+
+      const processed = await configLoader.processConfig(config);
+
+      expect(filesystem).toEqual({ tempDirectory: 'tmp-dir', metadataDirectory: 'meta-dir' });
+      expect(path.isAbsolute(processed.filesystem.tempDirectory)).toBe(true);
+      expect(path.isAbsolute(processed.filesystem.metadataDirectory)).toBe(true);
+    });
+
     test('应该处理路径配置', async () => {
       const config = {
         rootURL: 'https://example.com',

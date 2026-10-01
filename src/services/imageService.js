@@ -36,7 +36,7 @@ export class ImageService extends EventEmitter {
    */
   async setupImageObserver(page) {
     try {
-      // 修复：只传递可序列化的配置项，排除 logger
+      // 只传递可序列化的配置项，排除 logger
       const serializableOptions = {
         observerRootMargin: this.options.observerRootMargin,
         enableIntersectionObserver: this.options.enableIntersectionObserver,
@@ -460,69 +460,7 @@ export class ImageService extends EventEmitter {
   }
 
   /**
-   * 完整的图片处理流程
-   */
-  async processPageImages(page, options = {}) {
-    const config = { ...this.options, ...options };
-    const startTime = Date.now();
-
-    try {
-      this.logger?.info('开始处理页面图片');
-
-      // 设置图片观察器
-      await this.setupImageObserver(page);
-
-      // 等待初始图片加载
-      await this.waitForImages(page, { defaultTimeout: 5000 });
-
-      // 触发懒加载
-      const lazyResult = await this.triggerLazyLoading(page, options);
-
-      // 多次尝试确保所有图片都加载
-      let attempts = 0;
-      let allLoaded = lazyResult.allImagesLoaded;
-
-      while (attempts < config.maxScrollAttempts && !allLoaded) {
-        await this.scrollPage(page);
-        allLoaded = await this.waitForImages(page, { defaultTimeout: 8000 });
-        attempts++;
-
-        if (!allLoaded) {
-          this.logger?.debug(`图片加载尝试 ${attempts}/${config.maxScrollAttempts}`);
-        }
-      }
-
-      const totalTime = Date.now() - startTime;
-      const result = {
-        success: true,
-        totalTime,
-        attempts,
-        allImagesLoaded: allLoaded,
-        lazyImagesTriggered: lazyResult.triggered,
-        stats: { ...this.stats },
-      };
-
-      this.logger?.info('页面图片处理完成', result);
-      this.emit('page-images-complete', result);
-
-      return result;
-    } catch (error) {
-      const errorResult = {
-        success: false,
-        error: error.message,
-        totalTime: Date.now() - startTime,
-        stats: { ...this.stats },
-      };
-
-      this.logger?.error('页面图片处理失败', errorResult);
-      this.emit('page-images-error', errorResult);
-
-      return errorResult;
-    }
-  }
-
-  /**
-   * 🔧 修复：页面级别的清理方法 - 支持无参数调用
+   * 页面级别的清理方法 - 支持无参数调用
    */
   async cleanup(page = null) {
     try {

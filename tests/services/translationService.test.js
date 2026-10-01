@@ -64,6 +64,15 @@ describe('TranslationService', () => {
     fs.rmSync(cacheDir, { recursive: true, force: true });
   });
 
+  test('dispose stops the CLI client so shutdown kills running translations', async () => {
+    const client = { translateJson: vi.fn(), dispose: vi.fn() };
+    const service = createService({ config: baseConfig, logger, client });
+
+    await service.dispose();
+
+    expect(client.dispose).toHaveBeenCalledOnce();
+  });
+
   test('_getCacheKey 应该是稳定且区分模式的', () => {
     const service = createService({ config: baseConfig, logger });
     const text = 'Hello world';

@@ -110,6 +110,9 @@ sandbox. Benchmark-range addresses used by local proxy fake-IP resolvers are
 supported. XeLaTeX runs with shell escape disabled in its render directory, but
 raw TeX and local file access are not fully sandboxed. This is not a service for
 rendering arbitrary untrusted uploads.
+Chromium keeps the same-origin policy on; `browser.disableWebSecurity: true` turns
+it off and should only be used for a site that needs it. Chromium is launched with
+`--no-sandbox` so it works in containers and CI.
 
 ## Usage
 
