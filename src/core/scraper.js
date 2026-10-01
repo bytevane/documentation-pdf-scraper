@@ -534,7 +534,6 @@ export class Scraper extends EventEmitter {
           const gotoStartTime = Date.now();
           const waitUntil =
             this.config?.urlCollectionWaitUntil ||
-            this.config?.navigationWaitUntil ||
             'domcontentloaded';
           const timeout = this.config?.pageTimeout || 30000;
 
@@ -712,27 +711,6 @@ export class Scraper extends EventEmitter {
     });
 
     return allUrls;
-  }
-
-  /**
-   * 收集全局导航链接（不强制包含入口URL），用于根据侧边栏顺序进行分段
-   */
-  async _collectGlobalNavLinks(page) {
-    const urls = await page.evaluate((selector) => {
-      // 过滤掉顶栏 tab（nav-tabs）里的链接，只保留侧边栏/正文导航
-      const all = Array.from(document.querySelectorAll(selector));
-      const elements = all.filter((el) => !el.closest('.nav-tabs'));
-
-      return elements
-        .map((el) => {
-          const href = el.href || el.getAttribute('href');
-          return href ? href.trim() : null;
-        })
-        .filter((href) => href && !href.startsWith('#') && !href.startsWith('javascript:'));
-    }, this.config.navLinksSelector);
-
-    this.logger.debug('全局导航URL提取完成', { extractedCount: urls.length });
-    return urls;
   }
 
   /**

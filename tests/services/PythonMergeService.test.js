@@ -24,7 +24,7 @@ describe('PythonMergeService (real implementation)', () => {
       service.mergerScript, '--config', 'config.json', '--directory', 'docs',
     ], expect.objectContaining({ timeoutMs: 1234, signal: expect.any(AbortSignal) }));
     expect(progress).toHaveBeenCalledWith({ current: 1, total: 2, percentage: 50 });
-    expect(service.getStatistics()).toMatchObject({ successfulRuns: 1, totalFilesProcessed: 2 });
+    expect(service.getStatus().statistics).toMatchObject({ successfulRuns: 1, totalFilesProcessed: 2 });
   });
 
   it.each(['PDF saved as: docs.pdf', '{broken', JSON.stringify({ ...merged, success: false }),
@@ -55,12 +55,6 @@ describe('PythonMergeService (real implementation)', () => {
     expect(await service.stopMerge()).toBe(true);
     await rejected;
     expect(await service.stopMerge()).toBe(false);
-  });
-
-  it('reports each result in a multi-directory batch', async () => {
-    runner.run.mockRejectedValueOnce(new Error('bad PDF'));
-    const result = await service.mergeBatch(['first', 'second']);
-    expect(result).toMatchObject({ total: 2, successful: 1, failed: 1 });
   });
 
   it('disposes the runner without a fixed grace period', async () => {

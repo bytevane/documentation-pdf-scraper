@@ -454,14 +454,4 @@ export class BrowserPool extends EventEmitter {
     }
   }
 
-  /**
-   * 重启浏览器池
-   */
-  async restart() {
-    this.logger?.info('重启浏览器池');
-    await this.close();
-    this.isClosed = false;
-    this.isInitialized = false;
-    await this.initialize();
-  }
 }

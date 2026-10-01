@@ -518,40 +518,4 @@ export class PageManager extends EventEmitter {
     this.emit('closed', { stats: this.stats });
   }
 
-  /**
-   * 批量创建页面
-   */
-  async createPages(pageConfigs) {
-    const results = [];
-
-    for (const config of pageConfigs) {
-      try {
-        const page = await this.createPage(config.id, config.options);
-        results.push({ success: true, id: config.id, page });
-      } catch (error) {
-        results.push({ success: false, id: config.id, error });
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * 重启指定页面
-   */
-  async restartPage(id, options = {}) {
-    const oldPageInfo = this.pages.get(id);
-    if (!oldPageInfo) {
-      throw new Error(`页面 ${id} 不存在`);
-    }
-
-    // 保存原有配置
-    const pageOptions = { ...this.options, ...options };
-
-    // 关闭旧页面
-    await this.closePage(id);
-
-    // 创建新页面
-    return this.createPage(id, pageOptions);
-  }
 }

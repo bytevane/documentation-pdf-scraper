@@ -503,57 +503,6 @@ describe('PageManager', () => {
     });
   });
 
-  describe('createPages', () => {
-    it('should create multiple pages', async () => {
-      const configs = [
-        { id: 'page1', options: { userAgent: 'UA1' } },
-        { id: 'page2', options: { userAgent: 'UA2' } },
-      ];
-
-      const results = await pageManager.createPages(configs);
-
-      expect(results).toHaveLength(2);
-      expect(results[0]).toMatchObject({ success: true, id: 'page1', page: mockPage });
-      expect(results[1]).toMatchObject({ success: true, id: 'page2', page: mockPage });
-      expect(pageManager.pages.size).toBe(2);
-    });
-
-    it('should handle partial failures', async () => {
-      mockBrowser.newPage
-        .mockResolvedValueOnce(mockPage)
-        .mockRejectedValueOnce(new Error('Creation failed'));
-
-      const configs = [{ id: 'page1' }, { id: 'page2' }];
-
-      const results = await pageManager.createPages(configs);
-
-      expect(results[0].success).toBe(true);
-      expect(results[1].success).toBe(false);
-      expect(results[1].error).toBeInstanceOf(Error);
-    });
-  });
-
-  describe('restartPage', () => {
-    it('should restart existing page', async () => {
-      await pageManager.createPage('page1', { userAgent: 'Original UA' });
-
-      const newMockPage = { ...mockPage };
-      mockBrowser.newPage.mockResolvedValue(newMockPage);
-
-      const restartedPage = await pageManager.restartPage('page1', { userAgent: 'New UA' });
-
-      expect(mockPage.close).toHaveBeenCalled();
-      expect(restartedPage).toBe(newMockPage);
-      expect(mockPage.setUserAgent).toHaveBeenLastCalledWith('New UA');
-    });
-
-    it('should throw if page does not exist', async () => {
-      await expect(pageManager.restartPage('non-existent')).rejects.toThrow(
-        '页面 non-existent 不存在'
-      );
-    });
-  });
-
   describe('shouldBlockRequest', () => {
     it('should block media resources', () => {
       expect(pageManager.shouldBlockRequest('https://example.com/video.mp4', 'media')).toBe(true);

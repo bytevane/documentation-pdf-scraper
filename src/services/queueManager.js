@@ -132,14 +132,6 @@ export class QueueManager extends EventEmitter {
   }
 
   /**
-   * 批量添加任务
-   */
-  async addBatch(tasks) {
-    const promises = tasks.map(({ id, fn, options }) => this.addTask(id, fn, options));
-    return Promise.allSettled(promises);
-  }
-
-  /**
    * 等待所有任务完成
    */
   async waitForIdle() {

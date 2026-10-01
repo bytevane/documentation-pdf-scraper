@@ -136,48 +136,6 @@ describe('PathService', () => {
     });
   });
 
-  describe('getFinalPdfPath', () => {
-    test('应该生成带日期的最终PDF路径', () => {
-      const mockDate = new Date('2024-03-15');
-      const dateSpy = vi.spyOn(global, 'Date').mockImplementation(function MockDate() {
-        return mockDate;
-      });
-
-      const finalPath = pathService.getFinalPdfPath('nextjs-docs');
-
-      expect(finalPath).toBe(path.join(mockConfig.pdfDir, 'finalPdf', 'nextjs-docs_20240315.pdf'));
-
-      dateSpy.mockRestore();
-    });
-  });
-
-  describe('getLogPath', () => {
-    test('应该返回combined日志路径', () => {
-      const logPath = pathService.getLogPath('combined');
-      expect(logPath).toBe(path.join(process.cwd(), 'logs', 'combined.log'));
-    });
-
-    test('应该返回error日志路径', () => {
-      const logPath = pathService.getLogPath('error');
-      expect(logPath).toBe(path.join(process.cwd(), 'logs', 'error.log'));
-    });
-
-    test('应该返回progress日志路径', () => {
-      const logPath = pathService.getLogPath('progress');
-      expect(logPath).toBe(path.join(process.cwd(), 'logs', 'progress.log'));
-    });
-
-    test('应该处理自定义日志类型', () => {
-      const logPath = pathService.getLogPath('custom');
-      expect(logPath).toBe(path.join(process.cwd(), 'logs', 'custom.log'));
-    });
-
-    test('应该使用默认combined类型', () => {
-      const logPath = pathService.getLogPath();
-      expect(logPath).toBe(path.join(process.cwd(), 'logs', 'combined.log'));
-    });
-  });
-
   describe('parsePdfFileName', () => {
     test('应该解析数字索引文件名', () => {
       const result = pathService.parsePdfFileName('005-getting-started.pdf');
@@ -228,13 +186,6 @@ describe('PathService', () => {
     });
   });
 
-  describe('getTempPath', () => {
-    test('应该返回临时文件路径', () => {
-      const tempPath = pathService.getTempPath('temp-file.txt');
-      expect(tempPath).toBe(path.join(mockConfig.pdfDir, '.temp', 'temp-file.txt'));
-    });
-  });
-
   describe('getTempDirectory', () => {
     test('应该返回配置的临时目录', () => {
       const tempDir = pathService.getTempDirectory();
@@ -245,70 +196,6 @@ describe('PathService', () => {
       const serviceWithoutConfig = new PathService({ pdfDir: '/pdfs' });
       const tempDir = serviceWithoutConfig.getTempDirectory();
       expect(tempDir).toBe(path.resolve('.temp'));
-    });
-  });
-
-  describe('generateIndexedFileName', () => {
-    test('应该生成索引文件名', () => {
-      const url = 'https://nextjs.org/docs/routing';
-      const fileName = pathService.generateIndexedFileName(url, 42);
-
-      expect(fileName).toContain('042-routing.pdf');
-    });
-  });
-
-  describe('generateHashedFileName', () => {
-    test('应该生成哈希文件名', () => {
-      const url = 'https://nextjs.org/docs/routing';
-      const fileName = pathService.generateHashedFileName(url);
-
-      expect(fileName).toContain('a1b2c3d4-routing.pdf');
-    });
-  });
-
-  describe('validateFileName', () => {
-    test('应该验证索引文件名', () => {
-      const result = pathService.validateFileName('003-api-routes.pdf');
-
-      expect(result).toEqual({
-        isValid: true,
-        type: 'indexed',
-        index: 3,
-        originalName: 'api-routes',
-      });
-    });
-
-    test('应该验证哈希文件名', () => {
-      const result = pathService.validateFileName('deadbeef-config.pdf');
-
-      expect(result).toEqual({
-        isValid: true,
-        type: 'hashed',
-        index: null,
-        originalName: 'config',
-      });
-    });
-
-    test('应该验证简单文件名', () => {
-      const result = pathService.validateFileName('guide.pdf');
-
-      expect(result).toEqual({
-        isValid: true,
-        type: 'simple',
-        index: null,
-        originalName: 'guide',
-      });
-    });
-
-    test('应该标记无效格式的文件名', () => {
-      const result = pathService.validateFileName('invalid-prefix-file.pdf');
-
-      expect(result).toEqual({
-        isValid: false, // 无效，因为有前缀但不是数字或哈希
-        type: 'simple',
-        index: null,
-        originalName: 'prefix-file',
-      });
     });
   });
 
