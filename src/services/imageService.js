@@ -36,7 +36,7 @@ export class ImageService extends EventEmitter {
    */
   async setupImageObserver(page) {
     try {
-      // 修复：只传递可序列化的配置项，排除 logger
+      // 只传递可序列化的配置项，排除 logger
       const serializableOptions = {
         observerRootMargin: this.options.observerRootMargin,
         enableIntersectionObserver: this.options.enableIntersectionObserver,
@@ -460,7 +460,7 @@ export class ImageService extends EventEmitter {
   }
 
   /**
-   * 🔧 修复：页面级别的清理方法 - 支持无参数调用
+   * 页面级别的清理方法 - 支持无参数调用
    */
   async cleanup(page = null) {
     try {

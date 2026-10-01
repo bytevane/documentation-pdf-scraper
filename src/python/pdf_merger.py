@@ -187,7 +187,7 @@ class PDFMerger:
             file_page_map[filename] = current_page
             current_page += page_counts.get(filename, 0)
 
-        # 🔥 性能优化：预先构建反向索引 (index -> filename) 以避免O(n²)嵌套循环
+        # 预先构建反向索引 (index -> filename) 以避免O(n²)嵌套循环
         index_to_file = {}  # index -> filename
         for filename in files:
             file_index = file_to_index.get(filename)
@@ -214,7 +214,7 @@ class PDFMerger:
                 if not page_index:
                     continue
 
-                # 🔥 O(1) 查找而不是O(n)嵌套循环
+                # O(1) 查找而不是O(n)嵌套循环
                 found_file = index_to_file.get(page_index)
 
                 if found_file and found_file in file_page_map:
@@ -331,7 +331,7 @@ class PDFMerger:
                 merged_pdf = pymupdf.open()  # 创建空的PDF文档
                 toc = []  # 目录结构
 
-                # 🔥 新增：收集信息用于构建分层TOC
+                # 收集信息用于构建分层TOC
                 page_counts = {}  # filename -> page_count
                 file_to_index = {}  # filename -> index (用于匹配sectionStructure)
 
@@ -359,7 +359,7 @@ class PDFMerger:
                         # 插入PDF页面
                         merged_pdf.insert_pdf(current_file_pdf)
 
-                        # 🔥 新增：记录信息用于分层TOC
+                        # 记录信息用于分层TOC
                         page_counts[filename] = page_count
 
                         # 从文件名提取索引（支持 001-xxx.pdf 和 001-xxx_puppeteer.pdf）

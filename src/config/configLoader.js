@@ -104,17 +104,14 @@ class ConfigLoader {
       // 1. 处理路径配置
       processedConfig.pdfDir = this.resolvePath(config.pdfDir);
 
-      // 处理其他可能的路径配置
-      if (config.filesystem?.tempDirectory) {
-        processedConfig.filesystem.tempDirectory = this.resolvePath(
-          config.filesystem.tempDirectory
-        );
-      }
-
-      if (config.filesystem?.metadataDirectory) {
-        processedConfig.filesystem.metadataDirectory = this.resolvePath(
-          config.filesystem.metadataDirectory
-        );
+      // 处理其他可能的路径配置（复制 filesystem，避免修改调用方的对象）
+      if (config.filesystem) {
+        processedConfig.filesystem = { ...config.filesystem };
+        for (const key of ['tempDirectory', 'metadataDirectory']) {
+          if (config.filesystem[key]) {
+            processedConfig.filesystem[key] = this.resolvePath(config.filesystem[key]);
+          }
+        }
       }
 
       // 2. 处理域名配置

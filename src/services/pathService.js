@@ -27,7 +27,7 @@ export class PathService {
   }
 
   /**
-   * 获取PDF文件的完整路径 - 修复：支持数字索引优先
+   * 获取PDF文件的完整路径
    */
   getPdfPath(url, options = {}) {
     const { useHash = true, index = null } = options;
@@ -45,7 +45,7 @@ export class PathService {
     // 确定目录
     const directory = this.determineDirectory(url);
 
-    // 🔥 关键修改：构建文件名 - 数字索引优先，带补零
+    // 构建文件名 - 数字索引优先，带补零
     let finalFileName;
 
     if (!useHash && index !== null) {

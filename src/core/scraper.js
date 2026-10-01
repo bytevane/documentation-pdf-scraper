@@ -1,5 +1,5 @@
 /**
- * 核心爬虫类 - 修复PDF文件命名使用数字索引
+ * 核心爬虫：收集 URL、逐页抓取并生成 Markdown/PDF 产物
  */
 
 import path from 'path';
@@ -236,7 +236,7 @@ export class Scraper extends EventEmitter {
       throw new NetworkError('URL收集失败', this.config.rootURL, error);
     } finally {
       if (page) {
-        // 🔧 修复：在关闭页面前清理图片服务
+        // 在关闭页面前清理图片服务
         try {
           await this.imageService.cleanupPage(page);
         } catch (cleanupError) {
@@ -280,7 +280,7 @@ export class Scraper extends EventEmitter {
     // URL去重和规范化
     const normalizedUrls = new Map();
     const duplicates = new Set();
-    const sectionConflicts = []; // 🔥 新增：记录section冲突
+    const sectionConflicts = []; // 记录section冲突
 
     rawUrls.forEach((url, index) => {
       try {
@@ -290,7 +290,7 @@ export class Scraper extends EventEmitter {
         if (normalizedUrls.has(hash)) {
           duplicates.add(url);
 
-          // 🔥 日志增强：检测section冲突
+          // 检测section冲突
           const existing = normalizedUrls.get(hash);
           const currentMapping = urlToSectionMap.get(url);
 
@@ -326,7 +326,7 @@ export class Scraper extends EventEmitter {
       }
     });
 
-    // 🔥 日志增强：报告section冲突
+    // 报告section冲突
     if (sectionConflicts.length > 0) {
       this.logger.warn('检测到URL在多个section中重复', {
         conflictCount: sectionConflicts.length,
@@ -342,7 +342,7 @@ export class Scraper extends EventEmitter {
     this.urlQueue = Array.from(normalizedUrls.values()).map((item) => item.normalized);
     this.urlQueue.forEach((url) => this.urlSet.add(url));
 
-    // 🔥 新增：构建section结构并填充pages信息
+    // 构建section结构并填充pages信息
     const urlIndexMap = new Map(); // normalized URL -> final index
     Array.from(normalizedUrls.values()).forEach((item, finalIndex) => {
       urlIndexMap.set(item.normalized, finalIndex);
@@ -373,7 +373,7 @@ export class Scraper extends EventEmitter {
       });
     });
 
-    // 🔥 新增：保存section结构到元数据
+    // 保存section结构到元数据
     const sectionStructure = {
       sections,
       urlToSection,
@@ -382,7 +382,7 @@ export class Scraper extends EventEmitter {
     // 保存到元数据服务
     await this.metadataService.saveSectionStructure(sectionStructure);
 
-    // 🔥 日志增强：详细的section统计信息
+    // 详细的section统计信息
     this.logger.info('Section结构已保存', {
       sectionCount: sections.length,
       totalPages: Object.keys(urlToSection).length,
@@ -441,7 +441,7 @@ export class Scraper extends EventEmitter {
       });
     }
 
-    // 🔥 日志增强：检测并警告重复的entry points
+    // 检测并警告重复的entry points
     const originalLength = entryPoints.length;
     const deduplicated = Array.from(new Set(entryPoints));
 
@@ -704,16 +704,7 @@ export class Scraper extends EventEmitter {
       }
     }
 
-    // 确保入口页面本身也被处理（如果是单页情况，且入口就是内容页的话。但在博客模式下，入口是列表页，通常不需要爬取入口页本身作为内容）
-    // 为了兼容旧逻辑（文档模式），如果只抓了一页且没有分页配置，我们还是把入口URL加进去
-    // 但对于博客列表页，我们通常不希望把列表页本身生成PDF
-
-    // 策略：如果 config.isBlogMode 为 true，则不添加 entryUrl
-    // 或者简单点，如果提取到了链接，就只返回链接。
-    // 旧逻辑是：urls.unshift(entryUrl);
-
-    // 我们保留旧逻辑的兼容性：如果不是分页模式，且看起来像文档（有侧边栏），则保留。
-    // 但为了简单和安全，我们只在非分页模式下添加 entryUrl
+    // 文档站点的入口页本身就是内容页；分页的博客列表页不是，因此只在非分页模式下收录入口页
     if (!this.config.paginationSelector) {
       // 检查是否已存在
       if (!allUrls.includes(entryUrl)) {
@@ -927,16 +918,6 @@ export class Scraper extends EventEmitter {
       '深色主题移除失败',
       url
     );
-
-    this.logger.info('PDF样式处理配置检查', {
-      url,
-      enablePDFStyleProcessing: this.config.enablePDFStyleProcessing,
-      type: typeof this.config.enablePDFStyleProcessing,
-      strictCheck: this.config.enablePDFStyleProcessing === true,
-      configKeys: Object.keys(this.config).filter(
-        (key) => key.includes('PDF') || key.includes('Style')
-      ),
-    });
 
     if (this.config.enablePDFStyleProcessing === true) {
       await this._runOptionalPageStep(
@@ -1171,7 +1152,7 @@ export class Scraper extends EventEmitter {
   }
 
   /**
-   * 爬取单个页面 - 关键修改：使用数字索引命名
+   * 爬取单个页面
    */
   async scrapePage(url, index, options = {}) {
     const { isRetry = false } = options;
@@ -1190,7 +1171,7 @@ export class Scraper extends EventEmitter {
       this.logger.info(`开始爬取页面 [${index + 1}/${this.urlQueue.length}]: ${url}`);
       this.progressTracker.startUrl?.(url);
 
-      // 🔥 关键修改：生成PDF时使用数字索引而不是哈希
+      // 生成PDF时使用数字索引而不是哈希
       const pdfPath = this.pathService.getPdfPath(url, {
         useHash: false, // 使用索引而不是哈希
         index: index,
@@ -1304,7 +1285,7 @@ export class Scraper extends EventEmitter {
     this.startTime = Date.now();
 
     try {
-      this.logger.info('=== 开始运行爬虫（使用数字索引命名）===');
+      this.logger.info('=== 开始运行爬虫 ===');
 
       // 初始化
       await this.initialize();
@@ -1450,7 +1431,7 @@ export class Scraper extends EventEmitter {
   }
 
   /**
-   * 清理资源 - 🔧 修复版本
+   * 清理资源
    */
   async cleanup() {
     this.logger.info('开始清理资源...');
@@ -1463,7 +1444,7 @@ export class Scraper extends EventEmitter {
         this.queueManager.clear();
       }
 
-      // 2. 🔧 修复：图片服务的全局清理将由容器自动调用 dispose()
+      // 2. 图片服务的全局清理将由容器自动调用 dispose()
       // 这里不需要手动调用，避免重复清理
 
       // 3. 清理页面管理器（这会关闭所有页面）
