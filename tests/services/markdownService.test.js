@@ -443,7 +443,7 @@ describe('MarkdownService', () => {
       'When you sign in with ChatGPT, Codex works best with the models listed above.',
     ].join('\n');
 
-    const result = service._normalizeOpenAiModelsPage(
+    const result = service._siteAdapterFor('https://developers.openai.com/codex/models')._normalizeOpenAiModelsPage(
       markdown,
       [
         {
@@ -592,9 +592,10 @@ describe('MarkdownService', () => {
 
   test('_getOpenAiPagerLinkInfo 和 _shouldStripOpenAiPagerLinkGroup 应该区分真正 pager 与普通 Next 链接', () => {
     const service = new MarkdownService({ logger });
-    const previousInfo = service._getOpenAiPagerLinkInfo('Previous Settings', ['Previous', 'Settings']);
-    const nextInfo = service._getOpenAiPagerLinkInfo('Next Automations', ['Next', 'Automations']);
-    const nextStepsInfo = service._getOpenAiPagerLinkInfo('Next steps', ['Next steps']);
+    const openAiDocs = service._siteAdapterFor('https://developers.openai.com/codex');
+    const previousInfo = openAiDocs._getOpenAiPagerLinkInfo('Previous Settings', ['Previous', 'Settings']);
+    const nextInfo = openAiDocs._getOpenAiPagerLinkInfo('Next Automations', ['Next', 'Automations']);
+    const nextStepsInfo = openAiDocs._getOpenAiPagerLinkInfo('Next steps', ['Next steps']);
 
     expect(previousInfo).toEqual({
       kind: 'previous',
@@ -613,11 +614,11 @@ describe('MarkdownService', () => {
     });
 
     expect(
-      service._shouldStripOpenAiPagerLinkGroup([previousInfo, nextInfo], { requireExact: true })
+      openAiDocs._shouldStripOpenAiPagerLinkGroup([previousInfo, nextInfo], { requireExact: true })
     ).toBe(true);
     expect(
-      service._shouldStripOpenAiPagerLinkGroup([nextStepsInfo], { requireExact: true })
+      openAiDocs._shouldStripOpenAiPagerLinkGroup([nextStepsInfo], { requireExact: true })
     ).toBe(false);
-    expect(service._shouldStripOpenAiPagerLinkGroup([nextStepsInfo])).toBe(false);
+    expect(openAiDocs._shouldStripOpenAiPagerLinkGroup([nextStepsInfo])).toBe(false);
   });
 });
