@@ -95,6 +95,7 @@ npm run docs:openai      # Set docTarget=openai
 npm run docs:claude      # Set docTarget=claude-code
 npm run docs:list        # List available targets
 make docs-current        # Show current root/base URLs
+make docs-<name>         # Set docTarget (one shortcut per doc-targets/<name>.json)
 ```
 
 ### Kindle Profiles

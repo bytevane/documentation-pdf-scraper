@@ -1,11 +1,23 @@
-# Makefile for Next.js PDF Documentation Scraper
+# Makefile for the documentation PDF scraper
 
 UV = uv
 UV_ENV_DIR = .venv
 UV_PYTHON = $(UV_ENV_DIR)/bin/python
 NODE_MODULES = node_modules
 
-.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci verify-openclaw verify-openclaw-ci check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-openai docs-claude docs-claude-curated docs-openclaw docs-cloudflare docs-anthropic docs-53ai docs-claude-blog docs-current
+.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci verify-openclaw verify-openclaw-ci check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-current docs-list docs-use
+
+DOC_TARGET_SCRIPT = scripts/use-doc-target.js
+
+# One docs-<name> shortcut per doc-targets/<name>.json, plus the legacy short names.
+DOCS_ALIAS_claude = claude-code
+DOCS_ALIAS_cloudflare = cloudflare-blog
+DOCS_ALIAS_anthropic = anthropic-research
+DOCS_ALIAS_openclaw = openclaw-zh-cn
+DOC_TARGET_NAMES := $(sort $(basename $(notdir $(wildcard doc-targets/*.json))) openai claude cloudflare anthropic openclaw)
+DOC_TARGET_SHORTCUTS := $(addprefix docs-,$(DOC_TARGET_NAMES))
+
+.PHONY: $(DOC_TARGET_SHORTCUTS)
 
 help:
 	@echo "Available commands:"
@@ -37,14 +49,10 @@ help:
 	@echo "  clean-kindle      - Clean Kindle PDF files"
 	@echo ""
 	@echo "Doc targets:"
-	@echo "  docs-openai       - Apply OpenAI docs configuration"
-	@echo "  docs-claude       - Apply Claude Code docs configuration"
-	@echo "  docs-claude-curated - Apply curated Claude Code docs configuration"
-	@echo "  docs-openclaw     - Apply OpenClaw zh-CN docs configuration"
-	@echo "  docs-cloudflare   - Apply Cloudflare Blog configuration"
-	@echo "  docs-anthropic    - Apply Anthropic Research configuration"
-	@echo "  docs-53ai         - Apply 53ai configuration"
-	@echo "  docs-claude-blog  - Apply Claude Blog configuration"
+	@echo "  docs-<name>       - Set docTarget to doc-targets/<name>.json"
+	@echo "                      ($(DOC_TARGET_NAMES))"
+	@echo "  docs-use TARGET=<name|path> - Set docTarget to any target"
+	@echo "  docs-list         - List available doc targets"
 	@echo "  docs-current      - Show current doc configuration"
 
 # Create Python virtual environment with uv
@@ -184,7 +192,6 @@ python-info: check-venv
 
 # Kindle PDF optimization commands
 CONFIG_SCRIPT = scripts/use-kindle-config.js
-DOC_TARGET_SCRIPT = scripts/use-doc-target.js
 
 # Per-run profiles preserve config.json and reuse validated acquisition artifacts.
 kindle7:
@@ -224,3 +231,17 @@ clean-kindle:
 	@rm -rf pdfs/finalPdf-oasis
 	@rm -rf pdfs/finalPdf-scribe
 	@echo "✅ 清理完成"
+
+# Doc target selection (writes docTarget to config.json)
+$(DOC_TARGET_SHORTCUTS): docs-%:
+	@node $(DOC_TARGET_SCRIPT) use $(or $(DOCS_ALIAS_$*),$*)
+
+docs-use:
+	@test -n "$(TARGET)" || (echo "Usage: make docs-use TARGET=<name|doc-targets/file.json>"; exit 1)
+	@node $(DOC_TARGET_SCRIPT) use "$(TARGET)"
+
+docs-list:
+	@node $(DOC_TARGET_SCRIPT) list
+
+docs-current:
+	@node $(DOC_TARGET_SCRIPT) current
