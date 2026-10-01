@@ -42,6 +42,13 @@ export class NetworkError extends ScraperError {
   }
 }
 
+/** NetworkError for an HTTP error response, with the status in details.status. */
+export function httpError(status, url) {
+  const error = new NetworkError(`HTTP ${status}: ${url}`, url);
+  error.details.status = status;
+  return error;
+}
+
 export class FileOperationError extends ScraperError {
   constructor(message, filePath, operation) {
     super(message, 'FILE_ERROR', { filePath, operation });

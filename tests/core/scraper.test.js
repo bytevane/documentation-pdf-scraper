@@ -429,7 +429,7 @@ describe('Scraper', () => {
       scraper.config.urlCollectionWaitUntil = 'load';
       mockPage.evaluate.mockResolvedValue([]);
 
-      const urls = await scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/section1', [
+      const urls = await scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/section1', [
         'https://example.com/section1',
       ]);
 
@@ -447,7 +447,7 @@ describe('Scraper', () => {
       mockPage.goto.mockResolvedValue({ status: () => 404 });
 
       await expect(
-        scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/missing', [])
+        scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/missing', [])
       ).rejects.toMatchObject({ details: { status: 404 } });
       expect(mockPage.goto).toHaveBeenCalledTimes(1);
       expect(mockPage.evaluate).not.toHaveBeenCalled();
@@ -462,7 +462,7 @@ describe('Scraper', () => {
           .mockResolvedValueOnce({ status: () => 200 });
         mockPage.evaluate.mockResolvedValue([]);
 
-        const collecting = scraper._collectUrlsFromEntryPoint(mockPage, 'https://example.com/a', []);
+        const collecting = scraper.urlCollector._collectUrlsFromEntryPoint(mockPage, 'https://example.com/a', []);
         await vi.runAllTimersAsync();
 
         await expect(collecting).resolves.toEqual(['https://example.com/a']);
@@ -475,7 +475,7 @@ describe('Scraper', () => {
     it('should filter other entry points (ignore hash/query) and non-http(s) URLs', async () => {
       scraper.config.navExcludeSelector = '.nav-tabs';
 
-      const getEntryPointsSpy = vi.spyOn(scraper, '_getEntryPoints');
+      const getEntryPointsSpy = vi.spyOn(scraper.urlCollector, '_getEntryPoints');
 
       mockPage.evaluate.mockResolvedValue([
         'https://example.com/page1',
@@ -488,7 +488,7 @@ describe('Scraper', () => {
         'javascript:void(0)',
       ]);
 
-      const urls = await scraper._collectUrlsFromEntryPoint(
+      const urls = await scraper.urlCollector._collectUrlsFromEntryPoint(
         mockPage,
         'https://example.com/section1',
         ['https://example.com/section1', 'https://example.com/section2']
@@ -501,27 +501,27 @@ describe('Scraper', () => {
 
   describe('validateUrl', () => {
     it('should accept valid URLs', () => {
-      expect(scraper.validateUrl('https://example.com/page')).toBe(true);
-      expect(scraper.validateUrl('http://example.com/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://example.com/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('http://example.com/page')).toBe(true);
     });
 
     it('should reject invalid URLs', () => {
-      expect(scraper.validateUrl('invalid-url')).toBe(false);
-      expect(scraper.validateUrl('ftp://example.com')).toBe(false);
-      expect(scraper.validateUrl('')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('invalid-url')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('ftp://example.com')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('')).toBe(false);
     });
 
     it('should check allowed domains', () => {
-      expect(scraper.validateUrl('https://other.com')).toBe(false);
-      expect(scraper.validateUrl('https://example.com')).toBe(true);
-      expect(scraper.validateUrl('https://sub.example.com')).toBe(true);
-      expect(scraper.validateUrl('https://test.sub.example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://other.com')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('https://example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://sub.example.com')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://test.sub.example.com')).toBe(true);
     });
 
     it('should filter by baseUrl if configured', () => {
       scraper.config.baseUrl = 'https://example.com/docs';
-      expect(scraper.validateUrl('https://example.com/docs/page')).toBe(true);
-      expect(scraper.validateUrl('https://example.com/other/page')).toBe(false);
+      expect(scraper.urlCollector.validateUrl('https://example.com/docs/page')).toBe(true);
+      expect(scraper.urlCollector.validateUrl('https://example.com/other/page')).toBe(false);
     });
   });
 
@@ -529,14 +529,14 @@ describe('Scraper', () => {
     it('should check ignored patterns', () => {
       scraper.config.ignoreURLs = ['/admin', /\.pdf$/];
 
-      expect(scraper.isIgnored('https://example.com/admin/page')).toBe(true);
-      expect(scraper.isIgnored('https://example.com/file.pdf')).toBe(true);
-      expect(scraper.isIgnored('https://example.com/normal/page')).toBe(false);
+      expect(scraper.urlCollector.isIgnored('https://example.com/admin/page')).toBe(true);
+      expect(scraper.urlCollector.isIgnored('https://example.com/file.pdf')).toBe(true);
+      expect(scraper.urlCollector.isIgnored('https://example.com/normal/page')).toBe(false);
     });
 
     it('should handle missing ignoreURLs config', () => {
       scraper.config.ignoreURLs = null;
-      expect(scraper.isIgnored('any-url')).toBe(false);
+      expect(scraper.urlCollector.isIgnored('any-url')).toBe(false);
     });
   });
 

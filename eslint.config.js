@@ -6,6 +6,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 // Files that pass callbacks to page.evaluate(); those callbacks run in the browser.
 const PAGE_CONTEXT_FILES = [
   "src/core/scraper.js",
+  "src/core/urlCollector.js",
   "src/services/imageService.js",
   "src/services/markdownService.js",
   "src/services/pageManager.js",
