@@ -1,7 +1,7 @@
 import { describe, it, test, expect, beforeAll, beforeEach, afterAll, afterEach, vi } from 'vitest';
 
 import { PageManager } from '../../src/services/pageManager.js';
-import { NetworkError } from '../../src/utils/errors.js';
+import { BrowserError } from '../../src/utils/errors.js';
 
 describe('PageManager', () => {
   let pageManager;
@@ -117,7 +117,7 @@ describe('PageManager', () => {
     it('should release browser on page creation failure', async () => {
       mockBrowser.newPage.mockRejectedValue(new Error('Page creation failed'));
 
-      await expect(pageManager.createPage('test-page')).rejects.toThrow(NetworkError);
+      await expect(pageManager.createPage('test-page')).rejects.toThrow(BrowserError);
 
       expect(mockBrowserPool.releaseBrowser).toHaveBeenCalledWith(mockBrowser);
       expect(pageManager.stats.errors).toBe(1);

@@ -5,7 +5,7 @@
 import path from 'path';
 import { EventEmitter } from 'events';
 import { normalizeUrl, getUrlHash } from '../utils/url.js';
-import { NetworkError, ValidationError } from '../utils/errors.js';
+import { NetworkError, ScraperError, ValidationError } from '../utils/errors.js';
 import { retry, delay } from '../utils/common.js';
 import { HttpResourceService } from '../services/httpResourceService.js';
 
@@ -1233,6 +1233,7 @@ export class Scraper extends EventEmitter {
       });
     } catch (error) {
       this._recordScrapeFailure(url, index, error, isRetry);
+      if (error instanceof ScraperError) throw error;
       throw new NetworkError(`页面爬取失败: ${url}`, url, error);
     } finally {
       await this._cleanupScrapePage(page, pageId);

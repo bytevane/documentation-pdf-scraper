@@ -1,8 +1,8 @@
 // src/utils/errors.js
 export class ScraperError extends Error {
-  constructor(message, code, details = {}) {
-    super(message);
-    this.name = 'ScraperError';
+  constructor(message, code, details = {}, { cause } = {}) {
+    super(message, cause === undefined ? undefined : { cause });
+    this.name = new.target.name;
     this.code = code;
     this.details = details;
     this.timestamp = new Date();
@@ -32,10 +32,12 @@ export class ValidationError extends ScraperError {
 
 export class NetworkError extends ScraperError {
   constructor(message, url, originalError) {
-    super(message, 'NETWORK_ERROR', {
-      url,
-      originalError: originalError?.message || originalError,
-    });
+    super(
+      message,
+      'NETWORK_ERROR',
+      { url, originalError: originalError?.message || originalError },
+      { cause: originalError instanceof Error ? originalError : undefined }
+    );
     Object.setPrototypeOf(this, NetworkError.prototype);
   }
 }
@@ -48,8 +50,8 @@ export class FileOperationError extends ScraperError {
 }
 
 export class BrowserError extends ScraperError {
-  constructor(message, details) {
-    super(message, 'BROWSER_ERROR', details);
+  constructor(message, details, options) {
+    super(message, 'BROWSER_ERROR', details, options);
     Object.setPrototypeOf(this, BrowserError.prototype);
   }
 }

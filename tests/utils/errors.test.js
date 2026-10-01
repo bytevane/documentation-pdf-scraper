@@ -73,6 +73,27 @@ describe('错误类', () => {
       const error = new NetworkError('Network failed', 'http://test.com', 'Timeout');
 
       expect(error.details.originalError).toBe('Timeout');
+      expect(error.cause).toBeUndefined();
+    });
+
+    test('should keep the original error as the standard cause', () => {
+      const originalError = new Error('Connection failed');
+      const error = new NetworkError('Network failed', 'http://test.com', originalError);
+
+      expect(error.cause).toBe(originalError);
+      expect(error.name).toBe('NetworkError');
+    });
+  });
+
+  describe('BrowserError', () => {
+    test('should carry details and cause', () => {
+      const originalError = new Error('Launch failed');
+      const error = new BrowserError('Browser failed', { pageId: 'p1' }, { cause: originalError });
+
+      expect(error.code).toBe('BROWSER_ERROR');
+      expect(error.details).toEqual({ pageId: 'p1' });
+      expect(error.cause).toBe(originalError);
+      expect(error.name).toBe('BrowserError');
     });
   });
 

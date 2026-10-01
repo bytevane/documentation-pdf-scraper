@@ -1,6 +1,6 @@
 // src/services/pageManager.js
 import { EventEmitter } from 'events';
-import { NetworkError } from '../utils/errors.js';
+import { BrowserError } from '../utils/errors.js';
 
 /**
  * 页面管理服务
@@ -96,7 +96,7 @@ export class PageManager extends EventEmitter {
       }
 
       this.logger?.error(`创建页面失败 [${id}]`, { error: error.message });
-      throw new NetworkError(`页面创建失败: ${error.message}`, { cause: error });
+      throw new BrowserError(`页面创建失败: ${error.message}`, { pageId: id }, { cause: error });
     }
   }
 
@@ -256,7 +256,7 @@ export class PageManager extends EventEmitter {
         });
       });
     } catch (error) {
-      throw new NetworkError(`页面配置失败: ${error.message}`, { cause: error });
+      throw new BrowserError(`页面配置失败: ${error.message}`, {}, { cause: error });
     }
   }
 

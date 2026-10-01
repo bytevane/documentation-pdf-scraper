@@ -2,7 +2,7 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { EventEmitter } from 'events';
-import { NetworkError } from '../utils/errors.js';
+import { BrowserError } from '../utils/errors.js';
 
 // 配置 stealth plugin 以绕过反爬虫检测
 puppeteer.use(StealthPlugin());
@@ -97,7 +97,7 @@ export class BrowserPool extends EventEmitter {
       });
     } catch (error) {
       this.logger?.error('浏览器池初始化失败', { error: error.message });
-      throw new NetworkError('浏览器池初始化失败', { cause: error });
+      throw new BrowserError('浏览器池初始化失败', {}, { cause: error });
     }
   }
 
@@ -156,7 +156,7 @@ export class BrowserPool extends EventEmitter {
     } catch (error) {
       this.stats.errors++;
       this.logger?.error('创建浏览器失败', { error: error.message });
-      throw new NetworkError('浏览器创建失败', { cause: error });
+      throw new BrowserError('浏览器创建失败', {}, { cause: error });
     }
   }
 

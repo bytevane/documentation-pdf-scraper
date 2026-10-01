@@ -569,7 +569,7 @@ describe('Scraper', () => {
     it('should handle content not found', async () => {
       mockPage.waitForSelector.mockRejectedValue(new Error('Timeout'));
 
-      await expect(scraper.scrapePage(testUrl, testIndex)).rejects.toThrow(NetworkError);
+      await expect(scraper.scrapePage(testUrl, testIndex)).rejects.toThrow(ValidationError);
       expect(mockDependencies.logger.warn).toHaveBeenCalledWith(
         '内容选择器等待超时',
         expect.any(Object)
