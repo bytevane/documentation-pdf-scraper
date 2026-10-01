@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'node:url';
 import { constants as osConstants } from 'node:os';
 import { checkToolchain } from './utils/toolchain.js';
+import { isPathInside } from './utils/paths.js';
 import { createContainer, shutdownContainer, getContainerHealth } from './core/setup.js';
 import { createLogger } from './utils/logger.js';
 import { verifyPdf } from './services/pdf/pdfVerification.js';
@@ -146,9 +147,7 @@ class Application {
 
       // 为 Python 合并生成完整配置文件（config.json 仅保留公共配置，doc-target 在运行时合并）
       const tempDirectory = path.resolve(config.output?.tempDirectory || '.temp');
-      const rootDir = path.resolve(process.cwd());
-      const relativeTemp = path.relative(rootDir, tempDirectory);
-      if (relativeTemp.startsWith('..') || path.isAbsolute(relativeTemp)) {
+      if (!isPathInside(process.cwd(), tempDirectory)) {
         throw new Error(`Unsafe temp directory: ${tempDirectory}`);
       }
 

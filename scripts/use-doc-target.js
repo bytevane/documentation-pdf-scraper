@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isPathInside } from '../src/utils/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -26,18 +27,12 @@ const DOC_TARGETS = {
 };
 
 function validateSafePath(targetPath) {
-  const resolved = path.resolve(targetPath);
-  const relative = path.relative(rootDir, resolved);
-  return !(relative.startsWith('..') || path.isAbsolute(relative));
+  return isPathInside(rootDir, targetPath);
 }
 
 function assertPathInsideDirectory(baseDir, targetPath) {
-  const resolvedBase = path.resolve(baseDir);
-  const resolvedTarget = path.resolve(targetPath);
-  const relative = path.relative(resolvedBase, resolvedTarget);
-
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Unsafe path (outside ${resolvedBase}): ${targetPath}`);
+  if (!isPathInside(baseDir, targetPath)) {
+    throw new Error(`Unsafe path (outside ${path.resolve(baseDir)}): ${targetPath}`);
   }
 }
 

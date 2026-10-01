@@ -9,6 +9,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isPathInside } from '../src/utils/paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -23,8 +24,7 @@ const PROFILES_DIR = path.resolve(rootDir, 'config-profiles');
  * @returns {boolean} - 路径是否安全
  */
 function validateSafePath(filePath) {
-  const resolvedPath = path.resolve(filePath);
-  return resolvedPath.startsWith(rootDir);
+  return isPathInside(rootDir, filePath);
 }
 
 // 设备配置映射

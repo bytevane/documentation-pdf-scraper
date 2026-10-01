@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { validateConfig } from './configValidator.js';
+import { isPathInside } from '../utils/paths.js';
 import { createLogger } from '../utils/logger.js';
 import { assertLayoutLayerCompatibility } from '../services/pdf/layouts/layoutConfig.js';
 
@@ -224,11 +225,7 @@ class ConfigLoader {
    * @private
    */
   assertPathInsideConfigDir(targetPath) {
-    const configDir = path.resolve(path.dirname(this.configPath));
-    const resolvedTarget = path.resolve(targetPath);
-    const relative = path.relative(configDir, resolvedTarget);
-
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    if (!isPathInside(path.dirname(this.configPath), targetPath)) {
       throw new Error(`Unsafe doc target path (outside config dir): ${targetPath}`);
     }
   }

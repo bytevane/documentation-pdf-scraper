@@ -12,6 +12,7 @@ import pLimit from 'p-limit';
 import { HttpResourceService } from './httpResourceService.js';
 import { resolvePdfLayout } from './pdf/layouts/layoutRegistry.js';
 import { PandocLayoutAdapter } from './pdf/layouts/pandocLayoutAdapter.js';
+import { isPathInside } from '../utils/paths.js';
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const IMAGE_CONTENT_TYPE_FORMATS = [
@@ -632,7 +633,7 @@ export class PandocPdfService {
       }
       const files = artifacts ? artifacts.map((artifact) => {
         const relative = path.relative(path.resolve(markdownDir), path.resolve(artifact.path));
-        if (relative.startsWith('..') || path.isAbsolute(relative) || !relative.endsWith('.md')) {
+        if (!isPathInside(markdownDir, artifact.path) || !relative.endsWith('.md')) {
           throw new Error(`Unsafe Markdown artifact path: ${artifact.path}`);
         }
         return relative;
