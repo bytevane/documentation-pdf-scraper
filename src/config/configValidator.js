@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import { createLogger } from '../utils/logger.js';
+import { SITE_ADAPTER_IDS } from '../sites/index.js';
 
 // 配置验证模式
 const configSchema = Joi.object({
@@ -129,6 +130,12 @@ const configSchema = Joi.object({
     .valid('debug', 'info', 'warn', 'error')
     .default('info')
     .description('Logging level'),
+
+  siteAdapter: Joi.string()
+    .valid(...SITE_ADAPTER_IDS, 'none')
+    .description(
+      'Site-specific Markdown rules from src/sites/ ("none" disables them; unset tries every adapter on matching pages)'
+    ),
 
   enablePDFStyleProcessing: Joi.boolean()
     .default(false)

@@ -221,6 +221,10 @@ npx vitest run tests/services/fileService.test.js
 - `concurrency` - Number of parallel scrapers (default: 5)
 - `pageTimeout` - Max navigation time in ms (default: 30000)
 
+**Site-specific rules:**
+- `siteAdapter` - Which `src/sites/` adapter applies (e.g. `"openai-docs"`; `"none"` disables them; unset tries every adapter). An adapter still only runs on pages its `matches(pageUrl)` accepts.
+- Put site-specific DOM or Markdown cleanup in an adapter under `src/sites/` (register it in `src/sites/index.js`), never in `MarkdownService`. Its `transformContentClone` runs in the browser and must be self-contained.
+
 **PDF Processing:**
 - `enablePDFStyleProcessing` - Enable CSS transforms and DOM manipulation (default: false)
   - `false` - Safe for most sites, preserves original structure
@@ -435,7 +439,7 @@ node scripts/use-kindle-config.js current
   3. If post-Markdown cleanup is still needed, prefer **AST-based parsing** over regex.
   4. Use regex only as a **narrow fallback**, anchored to a specific malformed pattern.
 - **Guardrails**:
-  - Do **not** use global `Copy Page` / `Copied` cleanup for every site; scope it to the target site.
+  - Do **not** use global `Copy Page` / `Copied` cleanup for every site; scope it to the target site through its `src/sites/` adapter.
   - Do **not** remove content based on tokens like `[` / `]` alone; keyboard shortcuts and inline code often use them legitimately.
   - When fixing one broken page, scan sibling patterns (`commands`, `models`, `quickstart`, `use-cases`) for the same structural smell before stopping.
 

@@ -65,9 +65,10 @@ export class MarkdownService {
     this.logger = options.logger;
     this.config = options.config || {};
     this.markdownConfig = this.config.markdown || options.markdown || {};
-    this.siteAdapters = createSiteAdapters({
-      resolveResourceUrl: (target, pageUrl) => this._resolveResourceUrl(target, pageUrl),
-    });
+    this.siteAdapters = createSiteAdapters(
+      { resolveResourceUrl: (target, pageUrl) => this._resolveResourceUrl(target, pageUrl) },
+      this.config.siteAdapter
+    );
 
     const turndownOptions = {
       headingStyle: 'atx',
