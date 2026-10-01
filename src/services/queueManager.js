@@ -77,6 +77,7 @@ export class QueueManager extends EventEmitter {
     const task = {
       id,
       fn,
+      url: options.url,
       priority: options.priority || 0,
       addedAt: Date.now(),
       status: 'pending',

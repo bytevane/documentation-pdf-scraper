@@ -263,13 +263,30 @@ describe('Scraper', () => {
         expect.any(Function)
       );
       expect(mockDependencies.queueManager.on).toHaveBeenCalledWith(
-        'taskCompleted',
+        'taskSuccess',
         expect.any(Function)
       );
       expect(mockDependencies.queueManager.on).toHaveBeenCalledWith(
         'taskFailed',
         expect.any(Function)
       );
+    });
+
+    it('should read the URL and error from QueueManager event payloads', () => {
+      const handlerFor = (event) =>
+        mockDependencies.queueManager.on.mock.calls.find(([name]) => name === event)[1];
+      const task = { id: 'scrape-0', url: 'https://example.com/page' };
+
+      expect(() =>
+        handlerFor('taskFailed')({ id: task.id, error: new Error('boom'), task })
+      ).not.toThrow();
+      expect(mockDependencies.logger.warn).toHaveBeenCalledWith('任务失败', {
+        url: task.url,
+        error: 'boom',
+      });
+
+      handlerFor('taskSuccess')({ id: task.id, result: undefined, task });
+      expect(mockDependencies.logger.debug).toHaveBeenCalledWith('任务完成', { url: task.url });
     });
   });
 

@@ -66,12 +66,12 @@ export class Scraper extends EventEmitter {
     });
 
     // 监听队列管理器事件
-    this.queueManager.on('taskCompleted', (task) => {
+    this.queueManager.on('taskSuccess', ({ task }) => {
       this.logger.debug('任务完成', { url: task.url });
     });
 
-    this.queueManager.on('taskFailed', (task, error) => {
-      this.logger.warn('任务失败', { url: task.url, error: error.message });
+    this.queueManager.on('taskFailed', ({ task, error }) => {
+      this.logger.warn('任务失败', { url: task.url, error: error?.message });
     });
   }
 

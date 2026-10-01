@@ -132,6 +132,15 @@ describe('QueueManager', () => {
       expect(queueManager.queue.add).toHaveBeenCalledWith(expect.any(Function), { priority: 10 });
     });
 
+    test('should keep the task URL on the task passed to events', async () => {
+      const fn = vi.fn().mockResolvedValue('success');
+      const eventPromise = new Promise((resolve) => queueManager.once('taskSuccess', resolve));
+
+      await queueManager.addTask('task1', fn, { url: 'https://example.com/a' });
+      const { task } = await eventPromise;
+      expect(task.url).toBe('https://example.com/a');
+    });
+
     test('应该在任务成功时发出taskSuccess事件', async () => {
       const fn = vi.fn().mockResolvedValue('success');
       const eventPromise = new Promise((resolve) => queueManager.once('taskSuccess', resolve));
