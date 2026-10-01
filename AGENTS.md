@@ -10,7 +10,7 @@ Any other agent-specific files (for example `CLAUDE.md`) should treat this docum
 **Documentation PDF Scraper** - A Puppeteer-based system for generating PDFs from documentation sites with anti-bot bypass and collapsible content expansion capabilities.
 
 **Tech Stack:** Node.js ESM, Puppeteer-extra (stealth), Pandoc CLI (with a LaTeX engine such as xelatex), Python PyMuPDF for merging  
-**Test Coverage:** 516+ passing tests  
+**Tests:** Vitest suite (790+ tests) plus Python `unittest`; coverage floor enforced by `make test-coverage`  
 **Status:** Production-ready
 
 ## Quick Start
@@ -23,7 +23,7 @@ make install
 make clean && make run
 
 # Before commits (required)
-make test && make lint  # Must show 516+ passing tests
+make clean && make test && make lint  # All tests and lint must pass
 ```
 
 ## Development Environment Rules
@@ -163,7 +163,7 @@ make clean-venv          # Remove and recreate Python .venv
 ### Testing Requirements
 - Write tests for all new public functions
 - Cover error paths and edge cases
-- Maintain 516+ passing tests before commits
+- All tests must pass before commits; do not lower the coverage floor in `vitest.config.js` to get green
 - Always run `make clean` before testing to ensure clean state
 
 ### Test Workflow
@@ -219,7 +219,7 @@ npx vitest run tests/services/fileService.test.js
 
 **Performance:**
 - `concurrency` - Number of parallel scrapers (default: 5)
-- `pageTimeout` - Max navigation time in ms (default: 45000, reduce to 15000 for `domcontentloaded`)
+- `pageTimeout` - Max navigation time in ms (default: 30000)
 
 **PDF Processing:**
 - `enablePDFStyleProcessing` - Enable CSS transforms and DOM manipulation (default: false)
@@ -259,7 +259,7 @@ npx vitest run tests/services/fileService.test.js
 ## Security & Best Practices
 
 ### Security
-- Use `validateSafePath()` for all file operations
+- Check that user-controlled paths stay inside their base directory with `isPathInside()` from `src/utils/paths.js` (never a string prefix check)
 - Never commit secrets or API keys
 - Use trusted documentation only: HTTP checks and disabled XeLaTeX shell escape are not a full renderer sandbox. See README security boundary.
 - Validate all configuration inputs
@@ -273,7 +273,7 @@ npx vitest run tests/services/fileService.test.js
 
 ### Git Workflow
 - **Commit style:** Conventional Commits (`feat:`, `fix:`, `perf:`, `refactor:`, `docs:`)
-- **Before commits:** `make test && make lint` (require 516+ passing)
+- **Before commits:** `make clean && make test && make lint` (all must pass)
 - **Pull requests:** Include clear description, linked issues, reproduction notes, before/after logs
 
 ### Ignored Files
@@ -359,7 +359,8 @@ make kindle-oasis
 make kindle-all  # Generates PDFs for kindle7, paperwhite, oasis, scribe
 
 
-# Check current config
+# List profiles / check that config.json holds no device settings
+node scripts/use-kindle-config.js list
 node scripts/use-kindle-config.js current
 ```
 
