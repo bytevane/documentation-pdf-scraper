@@ -37,7 +37,7 @@
   "license": "ISC",
   "dependencies": {
     "chalk": "^6.0.0",
-    "joi": "^18.2.8",
+    "joi": "^18.2.9",
     "mdast-util-from-markdown": "^2.0.3",
     "mdast-util-mdx": "^3.0.0",
     "micromark-extension-mdxjs": "^3.0.0",
