@@ -1,7 +1,6 @@
 import Container from './container.js';
 import { ProcessRunner } from '../utils/processRunner.js';
 import { createLogger } from '../utils/logger.js';
-import { validateConfig } from '../config/configValidator.js';
 import { ConfigLoader } from '../config/configLoader.js';
 import { FileService } from '../services/fileService.js';
 import { PathService } from '../services/pathService.js';
@@ -54,7 +53,6 @@ function registerFoundationServices(container, setupLogger) {
   registerSingleton(container, 'config', async () => {
     const configLoader = new ConfigLoader();
     const config = await configLoader.load();
-    validateConfig(config);
     setupLogger.info('Configuration loaded and validated');
     return config;
   });
@@ -91,7 +89,7 @@ function registerStateServices(container) {
     container,
     'queueManager',
     (config, logger) => new QueueManager({
-      concurrency: config.concurrency || 5,
+      concurrency: config.concurrency,
       timeout: config.queue?.timeout,
       logger,
     }),
@@ -104,7 +102,7 @@ function registerBrowserServices(container) {
     container,
     'browserPool',
     (config, logger) => new BrowserPool({
-      maxBrowsers: config.concurrency || 5,
+      maxBrowsers: config.concurrency,
       headless: true,
       logger,
     }),

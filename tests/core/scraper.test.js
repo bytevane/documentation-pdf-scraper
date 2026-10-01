@@ -295,8 +295,9 @@ describe('Scraper', () => {
       await scraper.initialize();
 
       expect(mockDependencies.browserPool.initialize).not.toHaveBeenCalled();
-      expect(mockDependencies.stateManager.load).toHaveBeenCalled();
-      expect(mockDependencies.queueManager.setConcurrency).toHaveBeenCalledWith(3);
+      // The container loads state and sizes the queue; initialize must not repeat it.
+      expect(mockDependencies.stateManager.load).not.toHaveBeenCalled();
+      expect(mockDependencies.queueManager.setConcurrency).not.toHaveBeenCalled();
       expect(mockDependencies.fileService.ensureDirectory).toHaveBeenCalledWith('./pdfs');
       expect(mockDependencies.fileService.ensureDirectory).toHaveBeenCalledWith('pdfs/metadata');
       expect(scraper.isInitialized).toBe(true);
@@ -312,7 +313,7 @@ describe('Scraper', () => {
 
     it('should handle initialization errors', async () => {
       const error = new Error('Init failed');
-      mockDependencies.stateManager.load.mockRejectedValue(error);
+      mockDependencies.fileService.ensureDirectory.mockRejectedValue(error);
 
       await expect(scraper.initialize()).rejects.toThrow(error);
       expect(mockDependencies.logger.error).toHaveBeenCalledWith(
@@ -763,9 +764,9 @@ describe('Scraper', () => {
       expect(scraper.initialize).toHaveBeenCalled();
       expect(scraper.collectUrls).toHaveBeenCalled();
       expect(mockDependencies.stateManager.setStartTime).toHaveBeenCalledTimes(1);
-      expect(mockDependencies.stateManager.setUrlIndex).toHaveBeenCalledWith(
-        'https://example.com/page1',
-        0
+      expect(mockDependencies.stateManager.prepareRun).toHaveBeenCalledWith(
+        ['https://example.com/page1'],
+        mockDependencies.config
       );
       expect(mockDependencies.progressTracker.start).toHaveBeenCalledWith(1);
       expect(mockDependencies.queueManager.addTask).toHaveBeenCalled();

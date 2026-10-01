@@ -87,14 +87,7 @@ export class Scraper extends EventEmitter {
     try {
       this.logger.info('开始初始化爬虫...');
 
-      // 加载状态（如果还没有加载）
-      if (this.stateManager && typeof this.stateManager.load === 'function') {
-        await this.stateManager.load();
-      }
-
-      // 配置队列管理器
-      this.queueManager.setConcurrency(this.config.concurrency || 3);
-
+      // stateManager 由容器加载，队列并发数由容器按 config.concurrency 创建
       // 确保输出目录存在
       await this.fileService.ensureDirectory(this.config.pdfDir);
 
@@ -1333,7 +1326,6 @@ export class Scraper extends EventEmitter {
 
       // 初始化运行时状态基线，避免统计依赖延迟更新导致计数不一致
       this.stateManager.setStartTime();
-      urls.forEach((url, index) => this.stateManager.setUrlIndex(url, index));
 
       // 开始进度追踪
       this.progressTracker.start(urls.length);
