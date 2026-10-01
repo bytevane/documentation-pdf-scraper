@@ -102,7 +102,7 @@ make docs-<name>         # Set docTarget (one shortcut per doc-targets/<name>.js
 ```bash
 make kindle-oasis        # Single device profile
 make kindle-all          # All profiles (kindle7, paperwhite, oasis, scribe)
-node scripts/use-kindle-config.js current  # Debug current config
+node scripts/use-kindle-config.js list     # List PDF profiles (read-only)
 ```
 
 ### Debugging Scripts

@@ -44,8 +44,8 @@ help:
 	@echo "  kindle-oasis      - Generate PDFs for Kindle Oasis"
 	@echo "  kindle-scribe     - Generate PDFs for Kindle Scribe"
 	@echo "  kindle-all        - Generate PDFs for all Kindle devices"
-	@echo "  reset-config      - Reset to base configuration"
-	@echo "  list-configs      - List all available configurations"
+	@echo "  reset-config      - Check config.json holds no device settings (read-only)"
+	@echo "  list-configs      - List available PDF profiles"
 	@echo "  clean-kindle      - Clean Kindle PDF files"
 	@echo ""
 	@echo "Doc targets:"
@@ -214,10 +214,9 @@ kindle-all:
 	$(MAKE) kindle-scribe
 
 # Reset to base configuration
+# Profiles are chosen per run with PDF_PROFILE; config.json is never rewritten.
 reset-config:
-	@echo "🔄 重置为基础配置..."
 	@node $(CONFIG_SCRIPT) reset
-	@echo "✅ 配置已重置"
 
 # List all configurations
 list-configs:
