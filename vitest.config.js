@@ -14,6 +14,8 @@ export default defineConfig({
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.js'],
       exclude: ['src/**/*.test.js', 'src/python/**'],
+      // Floor just below the current numbers so coverage cannot silently slide.
+      thresholds: { statements: 76, branches: 67, functions: 79, lines: 77 },
     },
   },
 });

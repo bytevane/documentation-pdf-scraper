@@ -10,7 +10,6 @@ screenshots/
 .temp/
 *.log
 logs/
-reproduce_output/
 
 # AI tool artifacts
 .codex/
@@ -18,3 +17,4 @@ reproduce_output/
 
 # Revalidated source and image HTTP cache
 .cache/http/
+coverage/

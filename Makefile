@@ -5,7 +5,7 @@ UV_ENV_DIR = .venv
 UV_PYTHON = $(UV_ENV_DIR)/bin/python
 NODE_MODULES = node_modules
 
-.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci verify-openclaw verify-openclaw-ci check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-current docs-list docs-use
+.PHONY: help install install-python install-node venv clean-venv clean clean-all clean-cache run run-clean test lint lint-fix ci test-coverage verify-openclaw verify-openclaw-ci check-venv python-info kindle7 kindle-paperwhite kindle-oasis kindle-scribe kindle-all reset-config list-configs clean-kindle docs-current docs-list docs-use
 
 DOC_TARGET_SCRIPT = scripts/use-doc-target.js
 
@@ -29,6 +29,7 @@ help:
 	@echo "  run           - Generate PDF documentation"
 	@echo "  run-clean     - Clean output and generate PDF documentation"
 	@echo "  test          - Run tests"
+	@echo "  test-coverage - Run tests and enforce the coverage floor"
 	@echo "  pdf-smoke     - Generate and verify the fixed PDF layout fixture"
 	@echo "  verify-pdf PDF=<path> - Check a PDF and render review previews"
 	@echo "  lint          - Run linter"
@@ -113,6 +114,11 @@ test:
 	npm test
 	$(UV_PYTHON) -m unittest discover -s tests/python -v
 
+# Run tests with the coverage floor from vitest.config.js
+test-coverage:
+	npm run test:coverage
+	$(UV_PYTHON) -m unittest discover -s tests/python -v
+
 .PHONY: pdf-smoke verify-pdf doctor
 doctor:
 	node scripts/doctor.js
@@ -139,7 +145,7 @@ verify-openclaw-ci:
 	OPENCLAW_VERIFY_ALLOW_FETCH_FAILURE=1 npm run docs:openclaw:verify
 
 # CI checks
-ci: test lint verify-openclaw-ci
+ci: test-coverage lint verify-openclaw-ci
 	@echo "✅ CI checks passed"
 
 # Fix linting issues
