@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { isPathInside } from '../src/utils/paths.js';
+import { deepMerge } from '../src/utils/object.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -39,43 +40,6 @@ const DEVICE_PROFILES = {
 const args = process.argv.slice(2);
 const command = args[0];
 const device = args[1];
-
-/**
- * 深度合并两个对象（带循环引用保护）
- * @param {Object} target - 目标对象
- * @param {Object} source - 源对象
- * @param {WeakSet} visited - 访问过的对象集合（防止循环引用）
- * @returns {Object} - 合并后的对象
- */
-function deepMerge(target, source, visited = new WeakSet()) {
-  // 基本类型检查
-  if (!target || typeof target !== 'object') target = {};
-  if (!source || typeof source !== 'object') return target;
-
-  // 循环引用检查
-  if (visited.has(source)) {
-    throw new Error('Circular reference detected in configuration');
-  }
-  visited.add(source);
-
-  const result = { ...target };
-
-  for (const key in source) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const value = source[key];
-
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        // 递归合并对象
-        result[key] = deepMerge(result[key] || {}, value, visited);
-      } else {
-        // 直接赋值（基本类型和数组）
-        result[key] = value;
-      }
-    }
-  }
-
-  return result;
-}
 
 /**
  * 验证配置对象的基本结构

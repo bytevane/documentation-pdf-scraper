@@ -2,15 +2,7 @@ import { createHash } from 'node:crypto';
 import { ValidationError } from '../../../utils/errors.js';
 import { validateLayoutSpec } from './layoutSpecSchema.js';
 import { reading5x8 } from './packs/reading5x8.js';
-
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) =>
-      `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
+import { stableJson } from '../../../utils/object.js';
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;

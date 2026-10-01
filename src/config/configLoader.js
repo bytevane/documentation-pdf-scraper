@@ -2,18 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import { validateConfig } from './configValidator.js';
 import { isPathInside } from '../utils/paths.js';
+import { deepMerge } from '../utils/object.js';
+import { DOC_TARGET_ALIASES } from './docTargets.js';
 import { createLogger } from '../utils/logger.js';
 import { assertLayoutLayerCompatibility } from '../services/pdf/layouts/layoutConfig.js';
-
-const DOC_TARGETS = {
-  openai: 'openai-docs.json',
-  openclaw: 'openclaw-zh-cn.json',
-  'claude-code': 'claude-code.json',
-  'cloudflare-blog': 'cloudflare-blog.json',
-  'anthropic-research': 'anthropic-research.json',
-  'claude-blog': 'claude-blog.json',
-  'claude-dev-blog': 'claude-dev-blog.json',
-};
 
 /**
  * 配置加载器类
@@ -208,10 +200,10 @@ class ConfigLoader {
       return directPath;
     }
 
-    // 2) 向后兼容：使用预定义映射（如 openai -> openai-docs.json）
-    const mapped = DOC_TARGETS[docTarget];
-    if (mapped) {
-      const mappedPath = path.resolve(targetsDir, mapped);
+    // 2) 向后兼容：使用别名（如 openai -> openai-docs.json）
+    const alias = DOC_TARGET_ALIASES[docTarget];
+    if (alias) {
+      const mappedPath = path.resolve(targetsDir, `${alias}.json`);
       if (await this.isReadableFile(mappedPath)) {
         return mappedPath;
       }
@@ -262,21 +254,7 @@ class ConfigLoader {
    * @private
    */
   deepMerge(target, source) {
-    if (!target || typeof target !== 'object') target = {};
-    if (!source || typeof source !== 'object') return target;
-
-    const result = { ...target };
-
-    for (const key of Object.keys(source)) {
-      const value = source[key];
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        result[key] = this.deepMerge(result[key] || {}, value);
-      } else {
-        result[key] = value;
-      }
-    }
-
-    return result;
+    return deepMerge(target, source);
   }
 
   /**
