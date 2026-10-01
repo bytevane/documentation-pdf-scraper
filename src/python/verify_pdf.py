@@ -4,12 +4,15 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import unicodedata
 from contextlib import contextmanager
 
 import pymupdf
 
 
 def compact(text):
+    # Expand typographic ligatures such as U+FB00 so "diﬀicult" matches "difficult".
+    text = re.sub(r"[\ufb00-\ufb06]", lambda match: unicodedata.normalize("NFKC", match.group()), text)
     return re.sub(r"\s+", "", text.translate(str.maketrans("‘’“”", "''\"\"")))
 
 

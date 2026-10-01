@@ -266,6 +266,11 @@ describe('PandocPdfService', () => {
       }
     });
 
+    it('should route the almost-equal sign missing from Latin Modern text fonts', () => {
+      expect(pandocHeader).toContain('\\newfontfamily\\scraperMathSymbols{latinmodern-math.otf}');
+      expect(pandocHeader).toContain('\\newunicodechar{≈}{{\\scraperMathSymbols ≈}}');
+    });
+
     it('should apply publication-quality TOC typography and spacing', () => {
       const header = pandocHeader;
 

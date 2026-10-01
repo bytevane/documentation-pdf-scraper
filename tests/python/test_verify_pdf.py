@@ -142,6 +142,11 @@ class VerifyPdfTests(unittest.TestCase):
         self.assertTrue(verify.contains_text("set-up", "set-\nup"))
         self.assertFalse(verify.contains_text("documentation", "different content"))
 
+    def test_text_matching_expands_typographic_ligatures(self):
+        self.assertTrue(verify.contains_text("difficult tasks", "di\ufb00icult tasks"))
+        self.assertTrue(verify.contains_text("first file", "\ufb01rst \ufb01le"))
+        self.assertFalse(verify.contains_text("difficult", "di\ufb01cult"))
+
     def test_render_removes_stale_numbered_previews_but_preserves_other_files(self):
         self.create_pdf()
         report_dir = Path(self.temp.name) / "qa"
